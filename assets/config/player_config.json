@@ -1,0 +1,73 @@
+
+{
+  "version": 1,
+  "default_scenario": "shadowing",
+  "scenarios": {
+    "shadowing": {
+      "caption": "Shadowing",
+      "actions": [
+        {"action": "SHOW", "target": "top", "content": "phrase_text"},
+        {"action": "PLAY", "source": "phrase_audio"},
+        {"action": "WAIT", "source": "pause_before_translation"},
+        {"action": "SHOW", "target": "bottom", "content": "translate_text"},
+        {"action": "PLAY", "source": "translate_audio"},
+        {"action": "WAIT", "source": "pause_between_sentences"},
+        {"action": "HIDE", "target": "top"},
+        {"action": "HIDE", "target": "bottom"}
+      ]
+    },
+    "shadowing_no_translation": {
+      "caption": "Shadowing without translation",
+      "actions": [
+        {"action": "HIDE", "target": "bottom"},
+        {"action": "SHOW", "target": "top", "content": "phrase_text"},
+        {"action": "PLAY", "source": "phrase_audio"},
+        {"action": "WAIT", "source": "pause_between_sentences"},
+        {"action": "HIDE", "target": "top"}
+      ]
+    },
+    "shadowing_hidden": {
+      "caption": "Hidden Shadowing",
+      "actions": [
+        {"action": "HIDE", "target": "top"},
+        {"action": "HIDE", "target": "bottom"},
+        {"action": "PLAY", "source": "phrase_audio"},
+        {"action": "WAIT", "source": "pause_before_translation"},
+        {"action": "PLAY", "source": "translate_audio"},
+        {"action": "WAIT", "source": "pause_between_sentences"}
+      ]
+    },
+    "revers_shatdowing": {
+      "caption": "Reverse Shadowing",
+      "actions": [
+        {"action": "HIDE", "target": "top"},
+        {"action": "SHOW", "target": "bottom", "content": "translate_text"},
+        {"action": "PLAY", "source": "translate_audio"},
+        {"action": "WAIT", "source": "pause_before_translation"},
+        {"action": "SHOW", "target": "top", "content": "phrase_text"},
+        {"action": "PLAY", "source": "phrase_audio"},
+        {"action": "WAIT", "source": "pause_between_sentences"},
+        {"action": "HIDE", "target": "top"},
+        {"action": "HIDE", "target": "bottom"}
+      ]
+    },
+    "reading": {
+      "caption": "Reading",
+      "actions": [
+        {"action": "HIDE", "target": "bottom"},
+        {"action": "SHOW", "target": "top", "content": "phrase_text"},
+        {"action": "WAIT", "source": "pause_before_translation"},
+        {"action": "HIDE", "target": "top"}
+      ]
+    },
+    "dictation": {
+      "caption": "Dictation",
+      "actions": [
+        {"action": "HIDE", "target": "top"},
+        {"action": "HIDE", "target": "bottom"},
+        {"action": "PLAY", "source": "phrase_audio"},
+        {"action": "WAIT", "source": "pause_before_translation"}
+      ]
+    }
+  }
+}
