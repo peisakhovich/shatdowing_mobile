@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../models/learning_item.dart';
 import '../models/player_scenario.dart';
+import '../services/api_client.dart';
 import '../services/audio_player_service.dart';
 import '../services/player_config_service.dart';
 
@@ -16,25 +18,45 @@ class PlayerScreen extends StatefulWidget {
 class _PlayerScreenState extends State<PlayerScreen> {
   final PlayerConfigService _configService = PlayerConfigService();
   final AudioPlayerService _audioPlayerService = AudioPlayerService();
+  final ApiClient _apiClient = ApiClient();
 
   PlayerConfig? _config;
   PlayerScenario? _selectedScenario;
 
-  final String _phraseText = 'This is a sample sentence.';
-  final String _translateText = 'Это пример предложения.';
+  List<LearningItem> _items = [];
+  int _currentItemIndex = 0;
+
+  String _phraseText = '';
+  String _translateText = '';
 
   bool _isPlaying = false;
   bool _isTestingAudio = false;
   bool _showTop = false;
   bool _showBottom = false;
+
   int _playbackGeneration = 0;
+
   bool _isLoading = true;
+  bool _isLoadingSet = true;
+
   String? _errorMessage;
+  String? _setError;
+
+  LearningItem? get _currentItem {
+    if (_items.isEmpty ||
+        _currentItemIndex < 0 ||
+        _currentItemIndex >= _items.length) {
+      return null;
+    }
+
+    return _items[_currentItemIndex];
+  }
 
   @override
   void initState() {
     super.initState();
     _loadConfig();
+    _loadLearningSet();
   }
 
   Future<void> _loadConfig() async {
@@ -60,17 +82,54 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
+  Future<void> _loadLearningSet() async {
+    try {
+      final learningSet = await _apiClient.getLearningSet(69);
+
+      if (!mounted) return;
+
+      if (learningSet.items.isEmpty) {
+        throw const FormatException('API вернул набор без учебных элементов.');
+      }
+
+      setState(() {
+        _items = learningSet.items;
+        _currentItemIndex = 0;
+        _updateCurrentTexts();
+        _isLoadingSet = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _setError = error.toString();
+        _isLoadingSet = false;
+      });
+    }
+  }
+
+  void _updateCurrentTexts() {
+    final item = _currentItem;
+
+    _phraseText = item?.phrase ?? '';
+    _translateText = item?.translation ?? '';
+  }
+
   void _selectScenario(String? key) {
     if (key == null || _config == null) return;
 
+    final scenario = _config!.scenarios[key];
+    if (scenario == null) return;
+
     setState(() {
-      _selectedScenario = _config!.scenarios[key];
       _playbackGeneration++;
       _isPlaying = false;
+      _selectedScenario = scenario;
       _showTop = false;
       _showBottom = false;
     });
 
+    unawaited(_audioPlayerService.stop());
     _applyScenarioVisibility();
   }
 
@@ -83,19 +142,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     setState(() {
       if (firstAction.action == 'SHOW') {
-        if (firstAction.target == 'top') {
-          _showTop = true;
-        }
-        if (firstAction.target == 'bottom') {
-          _showBottom = true;
-        }
+        if (firstAction.target == 'top') _showTop = true;
+        if (firstAction.target == 'bottom') _showBottom = true;
       } else if (firstAction.action == 'HIDE') {
-        if (firstAction.target == 'top') {
-          _showTop = false;
-        }
-        if (firstAction.target == 'bottom') {
-          _showBottom = false;
-        }
+        if (firstAction.target == 'top') _showTop = false;
+        if (firstAction.target == 'bottom') _showBottom = false;
       }
     });
   }
@@ -130,15 +181,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _playbackGeneration++;
         _isPlaying = false;
       });
+
+      unawaited(_audioPlayerService.stop());
       return;
     }
 
+    if (_items.isEmpty) return;
+
+    final generation = ++_playbackGeneration;
+
     setState(() {
-      _playbackGeneration++;
       _isPlaying = true;
     });
 
-    _runScenario(_playbackGeneration);
+    unawaited(_runAllItems(generation));
   }
 
   bool _isPlaybackCancelled(int generation) {
@@ -147,13 +203,47 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Future<void> _executeWait(Duration duration, int generation) async {
     await Future.delayed(duration);
-
-    if (_isPlaybackCancelled(generation)) {
-      return;
-    }
   }
 
-  Future<void> _runScenario(int generation) async {
+  Future<void> _playScenarioAudio(ScenarioAction action, int generation) async {
+    final item = _currentItem;
+
+    if (item == null) {
+      throw StateError('Учебный элемент ещё не загружен.');
+    }
+
+    final String audioType;
+
+    switch (action.source) {
+      case 'phrase_audio':
+        audioType = 'phrase';
+        break;
+
+      case 'translate_audio':
+        audioType = 'translate';
+        break;
+
+      default:
+        throw FormatException('Неизвестный источник аудио: ${action.source}');
+    }
+
+    if (audioType == 'translate' &&
+        (item.translation == null || item.translation!.isEmpty)) {
+      return;
+    }
+
+    final audioBytes = await _apiClient.getItemAudio(
+      setId: 69,
+      itemId: item.id,
+      audioType: audioType,
+    );
+
+    if (_isPlaybackCancelled(generation)) return;
+
+    await _audioPlayerService.playBytes(audioBytes);
+  }
+
+  Future<void> _runCurrentScenario(int generation) async {
     final scenario = _selectedScenario;
     if (scenario == null) return;
 
@@ -176,25 +266,46 @@ class _PlayerScreenState extends State<PlayerScreen> {
           break;
 
         case 'WAIT':
-          final duration = action.source == 'pause_before_translation'
-              ? const Duration(seconds: 2)
-              : const Duration(seconds: 2);
-
-          await _executeWait(duration, generation);
+          await _executeWait(const Duration(seconds: 2), generation);
           break;
 
         case 'PLAY':
-          // Пока имитируем воспроизведение в сценарии.
-          // Настоящий MP3 проверяется отдельной кнопкой.
-          await _executeWait(const Duration(seconds: 1), generation);
+          await _playScenarioAudio(action, generation);
           break;
       }
     }
+  }
 
-    if (!_isPlaybackCancelled(generation)) {
-      setState(() {
-        _isPlaying = false;
-      });
+  Future<void> _runAllItems(int generation) async {
+    try {
+      while (!_isPlaybackCancelled(generation)) {
+        await _runCurrentScenario(generation);
+
+        if (_isPlaybackCancelled(generation)) return;
+
+        if (_currentItemIndex >= _items.length - 1) {
+          break;
+        }
+
+        setState(() {
+          _currentItemIndex++;
+          _updateCurrentTexts();
+          _showTop = false;
+          _showBottom = false;
+        });
+      }
+    } catch (error) {
+      if (mounted && generation == _playbackGeneration) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка воспроизведения: $error')),
+        );
+      }
+    } finally {
+      if (mounted && generation == _playbackGeneration) {
+        setState(() {
+          _isPlaying = false;
+        });
+      }
     }
   }
 
@@ -250,8 +361,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_isLoading || _isLoadingSet) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Sound Language Studio')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (_errorMessage != null) {
@@ -261,6 +375,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text('Не удалось загрузить конфигурацию:\n$_errorMessage'),
+          ),
+        ),
+      );
+    }
+
+    if (_setError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Sound Language Studio')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text('Не удалось загрузить учебный набор:\n$_setError'),
           ),
         ),
       );
@@ -290,7 +416,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 }).toList(),
                 onChanged: _selectScenario,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+              Text(
+                'Элемент ${_currentItemIndex + 1} / ${_items.length}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               _buildTextWindow(
                 title: 'Оригинал',
                 text: _phraseText,

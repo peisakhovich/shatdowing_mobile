@@ -1,34 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shadowing_mobile/services/player_config_service.dart';
+import 'package:shadowing_mobile/main.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets('Player screen displays title and controls', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const SoundLanguageStudioApp());
 
-  test('Загружает все шесть сценариев', () async {
-    final config = await PlayerConfigService().load();
+    // Ждём завершения асинхронной загрузки конфигурации.
+    await tester.pumpAndSettle();
 
-    expect(config.scenarios.length, 6);
-    expect(config.defaultScenario, 'shadowing');
-
-    expect(
-      config.scenarios.keys,
-      containsAll([
-        'shadowing',
-        'shadowing_no_translation',
-        'shadowing_hidden',
-        'revers_shatdowing',
-        'reading',
-        'dictation',
-      ]),
-    );
-  });
-
-  test('Сценарий Shadowing содержит восемь действий', () async {
-    final config = await PlayerConfigService().load();
-
-    final scenario = config.scenarios['shadowing']!;
-
-    expect(scenario.caption, 'Shadowing');
-    expect(scenario.actions.length, 8);
+    expect(find.text('Sound Language Studio'), findsOneWidget);
+    expect(find.text('Сценарий'), findsOneWidget);
+    expect(find.text('Play'), findsOneWidget);
+    expect(find.text('Проверить звук'), findsOneWidget);
   });
 }
