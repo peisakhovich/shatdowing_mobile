@@ -18,7 +18,7 @@ class SoundLanguageStudioApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      home: const PlayerScreen(),
+      home: const PlayerScreen(setId: 68),
     );
   }
 }
