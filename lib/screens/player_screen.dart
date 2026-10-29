@@ -20,6 +20,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
   final AudioPlayerService _audioPlayerService = AudioPlayerService();
   final ApiClient _apiClient = ApiClient();
 
+  static const int _setId = 69;
+
+  static const double _minPauseFactor = 0.0;
+  static const double _maxPauseFactor = 6.0;
+
+  static const int _minBetweenSentencesMs = 0;
+  static const int _maxBetweenSentencesMs = 16000;
+  static const int _betweenSentencesStepMs = 250;
+
   PlayerConfig? _config;
   PlayerScenario? _selectedScenario;
 
@@ -30,9 +39,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
   String _translateText = '';
 
   bool _isPlaying = false;
-  bool _isTestingAudio = false;
+
   bool _showTop = false;
   bool _showBottom = false;
+
+  // Пользовательские настройки пауз.
+  // Они не изменяют исходные данные LearningItem.
+  double _pauseBeforeTranslationFactor = 1.0;
+  int _pauseBetweenSentencesMs = 2000;
 
   int _playbackGeneration = 0;
 
@@ -50,6 +64,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
 
     return _items[_currentItemIndex];
+  }
+
+  bool get _hasTranslation {
+    final translation = _currentItem?.translation;
+    return translation != null && translation.trim().isNotEmpty;
   }
 
   @override
@@ -84,7 +103,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Future<void> _loadLearningSet() async {
     try {
-      final learningSet = await _apiClient.getLearningSet(69);
+      final learningSet = await _apiClient.getLearningSet(_setId);
 
       if (!mounted) return;
 
@@ -135,44 +154,28 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _applyScenarioVisibility() {
     final scenario = _selectedScenario;
-    if (scenario == null) return;
+    if (scenario == null || !mounted) return;
 
     final firstAction = scenario.actions.firstOrNull;
     if (firstAction == null) return;
 
     setState(() {
       if (firstAction.action == 'SHOW') {
-        if (firstAction.target == 'top') _showTop = true;
-        if (firstAction.target == 'bottom') _showBottom = true;
+        if (firstAction.target == 'top') {
+          _showTop = true;
+        }
+        if (firstAction.target == 'bottom' && _hasTranslation) {
+          _showBottom = true;
+        }
       } else if (firstAction.action == 'HIDE') {
-        if (firstAction.target == 'top') _showTop = false;
-        if (firstAction.target == 'bottom') _showBottom = false;
+        if (firstAction.target == 'top') {
+          _showTop = false;
+        }
+        if (firstAction.target == 'bottom') {
+          _showBottom = false;
+        }
       }
     });
-  }
-
-  Future<void> _testAudio() async {
-    if (_isTestingAudio) return;
-
-    setState(() {
-      _isTestingAudio = true;
-    });
-
-    try {
-      await _audioPlayerService.playAsset('assets/audio_test/test.mp3');
-    } catch (error) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка воспроизведения: $error')));
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isTestingAudio = false;
-        });
-      }
-    }
   }
 
   void _togglePlayback() {
@@ -197,12 +200,84 @@ class _PlayerScreenState extends State<PlayerScreen> {
     unawaited(_runAllItems(generation));
   }
 
+  /// Останавливает воспроизведение и выбирает другой элемент.
+  /// Новый элемент не запускается автоматически, если проигрыватель
+  /// до перехода находился в состоянии остановки.
+  void _navigateToItem(int index) {
+    if (_items.isEmpty) return;
+
+    final targetIndex = index.clamp(0, _items.length - 1).toInt();
+    final wasPlaying = _isPlaying;
+
+    // Отменяем предыдущий сценарий и его ожидания.
+    _playbackGeneration++;
+
+    unawaited(_audioPlayerService.stop());
+
+    setState(() {
+      _currentItemIndex = targetIndex;
+      _updateCurrentTexts();
+
+      _showTop = false;
+      _showBottom = false;
+      _isPlaying = wasPlaying;
+    });
+
+    _applyScenarioVisibility();
+
+    if (wasPlaying) {
+      final generation = ++_playbackGeneration;
+      unawaited(_runAllItems(generation));
+    }
+  }
+
   bool _isPlaybackCancelled(int generation) {
     return !mounted || !_isPlaying || generation != _playbackGeneration;
   }
 
+  /// Ожидание небольшими отрезками позволяет быстро реагировать на Stop
+  /// и переход к другому элементу.
   Future<void> _executeWait(Duration duration, int generation) async {
-    await Future.delayed(duration);
+    var remaining = duration;
+    const interval = Duration(milliseconds: 50);
+
+    while (remaining > Duration.zero) {
+      if (_isPlaybackCancelled(generation)) return;
+
+      final chunk = remaining > interval ? interval : remaining;
+
+      await Future.delayed(chunk);
+      remaining -= chunk;
+    }
+  }
+
+  Duration _getWaitDuration(ScenarioAction action) {
+    switch (action.source) {
+      case 'pause_before_translation':
+        final item = _currentItem;
+
+        if (item == null) {
+          throw StateError('Учебный элемент ещё не загружен.');
+        }
+
+        // Если перевода нет, пауза перед переводом не нужна.
+        if (!_hasTranslation) {
+          return Duration.zero;
+        }
+
+        // Исходная пауза элемента не изменяется.
+        final milliseconds =
+            (item.pauseBeforeTranslation * _pauseBeforeTranslationFactor)
+                .round();
+
+        return Duration(milliseconds: milliseconds);
+
+      case 'pause_between_sentences':
+        return Duration(milliseconds: _pauseBetweenSentencesMs);
+
+      default:
+        throw FormatException('Неизвестный источник паузы: ${action.source}');
+    }
   }
 
   Future<void> _playScenarioAudio(ScenarioAction action, int generation) async {
@@ -220,6 +295,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         break;
 
       case 'translate_audio':
+        if (!_hasTranslation) return;
         audioType = 'translate';
         break;
 
@@ -227,13 +303,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
         throw FormatException('Неизвестный источник аудио: ${action.source}');
     }
 
-    if (audioType == 'translate' &&
-        (item.translation == null || item.translation!.isEmpty)) {
-      return;
-    }
-
     final audioBytes = await _apiClient.getItemAudio(
-      setId: 69,
+      setId: _setId,
       itemId: item.id,
       audioType: audioType,
     );
@@ -252,21 +323,45 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
       switch (action.action) {
         case 'SHOW':
+          if (action.target == 'bottom' && !_hasTranslation) {
+            break;
+          }
+
           setState(() {
-            if (action.target == 'top') _showTop = true;
-            if (action.target == 'bottom') _showBottom = true;
+            if (action.target == 'top') {
+              _showTop = true;
+            }
+            if (action.target == 'bottom') {
+              _showBottom = true;
+            }
           });
           break;
 
         case 'HIDE':
           setState(() {
-            if (action.target == 'top') _showTop = false;
-            if (action.target == 'bottom') _showBottom = false;
+            if (action.target == 'top') {
+              _showTop = false;
+            }
+            if (action.target == 'bottom') {
+              _showBottom = false;
+            }
           });
           break;
 
         case 'WAIT':
-          await _executeWait(const Duration(seconds: 2), generation);
+          final duration = _getWaitDuration(action);
+
+          debugPrint(
+            '[PAUSE START] item=${_currentItemIndex + 1}, '
+            'source=${action.source}, duration=${duration.inMilliseconds} ms',
+          );
+
+          await _executeWait(duration, generation);
+
+          debugPrint(
+            '[PAUSE END] item=${_currentItemIndex + 1}, '
+            'source=${action.source}',
+          );
           break;
 
         case 'PLAY':
@@ -307,6 +402,87 @@ class _PlayerScreenState extends State<PlayerScreen> {
         });
       }
     }
+  }
+
+  Widget _buildPauseSettings() {
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      title: const Text('Настройки пауз'),
+      subtitle: const Text('Влияют на последующие паузы'),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(child: Text('Перед переводом')),
+                  Text(
+                    '${_pauseBeforeTranslationFactor.toStringAsFixed(2)}×',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ],
+              ),
+              Slider(
+                min: _minPauseFactor,
+                max: _maxPauseFactor,
+                divisions: 24,
+                value: _pauseBeforeTranslationFactor,
+                label: '${_pauseBeforeTranslationFactor.toStringAsFixed(2)}×',
+                onChanged: (value) {
+                  setState(() {
+                    _pauseBeforeTranslationFactor = value;
+                  });
+                },
+              ),
+              Row(
+                children: [
+                  const Expanded(child: Text('Между предложениями')),
+                  Text(
+                    '$_pauseBetweenSentencesMs мс',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ],
+              ),
+              Slider(
+                min: _minBetweenSentencesMs.toDouble(),
+                max: _maxBetweenSentencesMs.toDouble(),
+                divisions: _maxBetweenSentencesMs ~/ _betweenSentencesStepMs,
+                value: _pauseBetweenSentencesMs.toDouble(),
+                label: '$_pauseBetweenSentencesMs мс',
+                onChanged: (value) {
+                  setState(() {
+                    _pauseBetweenSentencesMs =
+                        (value / _betweenSentencesStepMs).round() *
+                        _betweenSentencesStepMs;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNavigationButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onPressed,
+  }) {
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: IconButton.filledTonal(
+        onPressed: onPressed,
+        tooltip: tooltip,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+        style: IconButton.styleFrom(shape: const CircleBorder()),
+        icon: Icon(icon, size: 20),
+      ),
+    );
   }
 
   Widget _buildTextWindow({
@@ -416,7 +592,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 }).toList(),
                 onChanged: _selectScenario,
               ),
-              const SizedBox(height: 8),
+              _buildPauseSettings(),
+              const SizedBox(height: 4),
               Text(
                 'Элемент ${_currentItemIndex + 1} / ${_items.length}',
                 style: Theme.of(context).textTheme.titleMedium,
@@ -434,28 +611,56 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 fontSize: 20,
               ),
               const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 72,
-                child: FilledButton.icon(
-                  onPressed: _togglePlayback,
-                  icon: Icon(
-                    _isPlaying ? Icons.stop : Icons.play_arrow,
-                    size: 36,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildNavigationButton(
+                    icon: Icons.first_page,
+                    tooltip: 'В начало',
+                    onPressed: _currentItemIndex > 0
+                        ? () => _navigateToItem(0)
+                        : null,
                   ),
-                  label: Text(
-                    _isPlaying ? 'Stop' : 'Play',
-                    style: const TextStyle(fontSize: 22),
+                  const SizedBox(width: 6),
+                  _buildNavigationButton(
+                    icon: Icons.chevron_left,
+                    tooltip: 'Назад',
+                    onPressed: _currentItemIndex > 0
+                        ? () => _navigateToItem(_currentItemIndex - 1)
+                        : null,
                   ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: _isTestingAudio ? null : _testAudio,
-                icon: const Icon(Icons.volume_up),
-                label: Text(
-                  _isTestingAudio ? 'Воспроизводится...' : 'Проверить звук',
-                ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: IconButton.filled(
+                      onPressed: _togglePlayback,
+                      tooltip: _isPlaying ? 'Stop' : 'Play',
+                      padding: EdgeInsets.zero,
+                      style: IconButton.styleFrom(shape: const CircleBorder()),
+                      icon: Icon(
+                        _isPlaying ? Icons.stop : Icons.play_arrow,
+                        size: 36,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildNavigationButton(
+                    icon: Icons.chevron_right,
+                    tooltip: 'Вперёд',
+                    onPressed: _currentItemIndex < _items.length - 1
+                        ? () => _navigateToItem(_currentItemIndex + 1)
+                        : null,
+                  ),
+                  const SizedBox(width: 6),
+                  _buildNavigationButton(
+                    icon: Icons.last_page,
+                    tooltip: 'В конец',
+                    onPressed: _currentItemIndex < _items.length - 1
+                        ? () => _navigateToItem(_items.length - 1)
+                        : null,
+                  ),
+                ],
               ),
             ],
           ),
