@@ -23,10 +23,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   static const int _setId = 69;
 
   static const double _minPauseFactor = 0.0;
-  static const double _maxPauseFactor = 6.0;
+  static const double _maxPauseFactor = 10.0;
 
   static const int _minBetweenSentencesMs = 0;
-  static const int _maxBetweenSentencesMs = 16000;
+  static const int _maxBetweenSentencesMs = 20000;
   static const int _betweenSentencesStepMs = 250;
 
   PlayerConfig? _config;
@@ -46,7 +46,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // Пользовательские настройки пауз.
   // Они не изменяют исходные данные LearningItem.
   double _pauseBeforeTranslationFactor = 1.0;
-  int _pauseBetweenSentencesMs = 2000;
+  int _pauseBetweenSentencesMs = 4000;
 
   int _playbackGeneration = 0;
 
@@ -405,6 +405,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   Widget _buildPauseSettings() {
+    final item = _currentItem;
+
+    final basePauseMs = item?.pauseBeforeTranslation ?? 0;
+    final effectivePauseMs = _hasTranslation
+        ? (basePauseMs * _pauseBeforeTranslationFactor).round()
+        : 0;
+
     return ExpansionTile(
       tilePadding: EdgeInsets.zero,
       title: const Text('Настройки пауз'),
@@ -427,7 +434,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               Slider(
                 min: _minPauseFactor,
                 max: _maxPauseFactor,
-                divisions: 24,
+                divisions: 40,
                 value: _pauseBeforeTranslationFactor,
                 label: '${_pauseBeforeTranslationFactor.toStringAsFixed(2)}×',
                 onChanged: (value) {
@@ -435,6 +442,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     _pauseBeforeTranslationFactor = value;
                   });
                 },
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 8, right: 8, bottom: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Expanded(
+                      child: Text('Фактическая пауза перед переводом'),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$effectivePauseMs мс',
+                      style: Theme.of(context).textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
               ),
               Row(
                 children: [
