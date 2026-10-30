@@ -10,6 +10,7 @@ import '../services/api_client.dart';
 import '../services/audio_player_service.dart';
 import '../services/local_session_storage.dart';
 import '../services/player_config_service.dart';
+import '../widgets/player/adaptive_text_window.dart';
 
 class PlayerScreen extends StatefulWidget {
   final int setId;
@@ -861,50 +862,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  Widget _buildTextWindow({
-    required String title,
-    required String text,
-    required bool visible,
-    required double fontSize,
-  }) {
-    return Expanded(
-      child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.symmetric(vertical: 6),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: visible
-              ? Theme.of(context).colorScheme.surfaceContainerHighest
-              : Theme.of(context).colorScheme.surface,
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: visible
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: Theme.of(context).textTheme.labelMedium),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: Center(
-                      child: SingleChildScrollView(
-                        child: Text(
-                          text,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: fontSize),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              )
-            : const SizedBox.shrink(),
-      ),
-    );
-  }
-
   @override
   void dispose() {
     unawaited(_audioPlayerService.dispose());
@@ -1000,17 +957,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 'Элемент ${_currentItemIndex + 1} / ${_items.length}',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-              _buildTextWindow(
+              AdaptiveTextWindow(
                 title: 'Оригинал',
                 text: _phraseText,
                 visible: _showTop,
-                fontSize: 26,
+                baseFontSize: 26,
               ),
-              _buildTextWindow(
+              AdaptiveTextWindow(
                 title: 'Перевод',
                 text: _translateText,
                 visible: _showBottom,
-                fontSize: 20,
+                baseFontSize: 20,
               ),
               const SizedBox(height: 12),
               Row(
