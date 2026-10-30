@@ -11,6 +11,7 @@ import '../services/audio_player_service.dart';
 import '../services/local_session_storage.dart';
 import '../services/player_config_service.dart';
 import '../widgets/player/adaptive_text_window.dart';
+import '../widgets/player/pause_settings.dart';
 
 class PlayerScreen extends StatefulWidget {
   final int setId;
@@ -26,13 +27,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
   final AudioPlayerService _audioPlayerService = AudioPlayerService();
   final ApiClient _apiClient = ApiClient();
   final LocalSessionStorage _localSessionStorage = LocalSessionStorage();
-
-  static const double _minPauseFactor = 0.0;
-  static const double _maxPauseFactor = 6.0;
-
-  static const int _minBetweenSentencesMs = 0;
-  static const int _maxBetweenSentencesMs = 16000;
-  static const int _betweenSentencesStepMs = 250;
 
   PlayerConfig? _config;
   PlayerScenario? _selectedScenario;
@@ -72,6 +66,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
 
     return _items[_currentItemIndex];
+  }
+
+  int get _effectivePauseBeforeTranslationMs {
+    final item = _currentItem;
+    if (item == null) return 0;
+
+    return (item.pauseBeforeTranslation * _pauseBeforeTranslationFactor)
+        .round();
   }
 
   bool get _hasTranslation {
@@ -528,11 +530,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           return Duration.zero;
         }
 
-        final milliseconds =
-            (item.pauseBeforeTranslation * _pauseBeforeTranslationFactor)
-                .round();
-
-        return Duration(milliseconds: milliseconds);
+        return Duration(milliseconds: _effectivePauseBeforeTranslationMs);
 
       case 'pause_between_sentences':
         return Duration(milliseconds: _pauseBetweenSentencesMs);
@@ -781,68 +779,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  Widget _buildPauseSettings() {
-    return ExpansionTile(
-      tilePadding: EdgeInsets.zero,
-      title: const Text('Настройки пауз'),
-      subtitle: const Text('Влияют на последующие паузы'),
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Expanded(child: Text('Перед переводом')),
-                  Text(
-                    '${_pauseBeforeTranslationFactor.toStringAsFixed(2)}×',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                ],
-              ),
-              Slider(
-                min: _minPauseFactor,
-                max: _maxPauseFactor,
-                divisions: 24,
-                value: _pauseBeforeTranslationFactor,
-                label: '${_pauseBeforeTranslationFactor.toStringAsFixed(2)}×',
-                onChanged: (value) {
-                  setState(() {
-                    _pauseBeforeTranslationFactor = value;
-                  });
-                },
-              ),
-              Row(
-                children: [
-                  const Expanded(child: Text('Между предложениями')),
-                  Text(
-                    '$_pauseBetweenSentencesMs мс',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                ],
-              ),
-              Slider(
-                min: _minBetweenSentencesMs.toDouble(),
-                max: _maxBetweenSentencesMs.toDouble(),
-                divisions: _maxBetweenSentencesMs ~/ _betweenSentencesStepMs,
-                value: _pauseBetweenSentencesMs.toDouble(),
-                label: '$_pauseBetweenSentencesMs мс',
-                onChanged: (value) {
-                  setState(() {
-                    _pauseBetweenSentencesMs =
-                        (value / _betweenSentencesStepMs).round() *
-                        _betweenSentencesStepMs;
-                  });
-                },
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildNavigationButton({
     required IconData icon,
     required String tooltip,
@@ -951,7 +887,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 }).toList(),
                 onChanged: _selectScenario,
               ),
-              _buildPauseSettings(),
+              PauseSettings(
+                pauseBeforeTranslationFactor: _pauseBeforeTranslationFactor,
+                pauseBeforeTranslationMs:
+                    _currentItem?.pauseBeforeTranslation ?? 0,
+                effectivePauseBeforeTranslationMs:
+                    _effectivePauseBeforeTranslationMs,
+                pauseBetweenSentencesMs: _pauseBetweenSentencesMs,
+                onPauseBeforeTranslationChanged: (value) {
+                  setState(() {
+                    _pauseBeforeTranslationFactor = value;
+                  });
+                },
+                onPauseBetweenSentencesChanged: (value) {
+                  setState(() {
+                    _pauseBetweenSentencesMs = value;
+                  });
+                },
+              ),
               const SizedBox(height: 4),
               Text(
                 'Элемент ${_currentItemIndex + 1} / ${_items.length}',
