@@ -12,6 +12,7 @@ import '../services/local_session_storage.dart';
 import '../services/player_config_service.dart';
 import '../widgets/player/adaptive_text_window.dart';
 import '../widgets/player/pause_settings.dart';
+import '../widgets/player/player_controls.dart';
 
 class PlayerScreen extends StatefulWidget {
   final int setId;
@@ -40,6 +41,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _isPlaying = false;
   bool _showTop = false;
   bool _showBottom = false;
+  bool _repeatEnabled = false;
 
   // Настройки пользователя не изменяют исходные данные LearningItem.
   double _pauseBeforeTranslationFactor = 1.0;
@@ -677,9 +679,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Future<void> _runAllItems(int generation) async {
     try {
       while (!_isPlaybackCancelled(generation)) {
-        await _runCurrentScenario(generation);
+        final item = _items[_currentItemIndex];
 
-        if (_isPlaybackCancelled(generation)) return;
+        // Если repeatCount отсутствует или равен 0,
+        // используем 1 повторение.
+        final baseRepeatCount = item.repeatCount > 0 ? item.repeatCount : 1;
+
+        // Выполняем полный сценарий текущего элемента.
+        // Состояние Repeat проверяется перед каждым повторением.
+        var repeat = 0;
+
+        while (repeat < baseRepeatCount * (_repeatEnabled ? 5 : 1)) {
+          if (_isPlaybackCancelled(generation)) return;
+
+          await _runCurrentScenario(generation);
+
+          if (_isPlaybackCancelled(generation)) return;
+
+          repeat++;
+        }
 
         if (_currentItemIndex >= _items.length - 1) {
           break;
@@ -923,56 +941,67 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 baseFontSize: 20,
               ),
               const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildNavigationButton(
-                    icon: Icons.first_page,
-                    tooltip: 'В начало',
-                    onPressed: _currentItemIndex > 0
-                        ? () => _navigateToItem(0)
-                        : null,
-                  ),
-                  const SizedBox(width: 6),
-                  _buildNavigationButton(
-                    icon: Icons.chevron_left,
-                    tooltip: 'Назад',
-                    onPressed: _currentItemIndex > 0
-                        ? () => _navigateToItem(_currentItemIndex - 1)
-                        : null,
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 64,
-                    height: 64,
-                    child: IconButton.filled(
-                      onPressed: _togglePlayback,
-                      tooltip: _isPlaying ? 'Stop' : 'Play',
-                      padding: EdgeInsets.zero,
-                      style: IconButton.styleFrom(shape: const CircleBorder()),
-                      icon: Icon(
-                        _isPlaying ? Icons.stop : Icons.play_arrow,
-                        size: 36,
+              PlayerControls(
+                onSettings: null,
+                repeatEnabled: _repeatEnabled,
+                onRepeat: () {
+                  setState(() {
+                    _repeatEnabled = !_repeatEnabled;
+                  });
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildNavigationButton(
+                      icon: Icons.first_page,
+                      tooltip: 'В начало',
+                      onPressed: _currentItemIndex > 0
+                          ? () => _navigateToItem(0)
+                          : null,
+                    ),
+                    const SizedBox(width: 6),
+                    _buildNavigationButton(
+                      icon: Icons.chevron_left,
+                      tooltip: 'Назад',
+                      onPressed: _currentItemIndex > 0
+                          ? () => _navigateToItem(_currentItemIndex - 1)
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 64,
+                      height: 64,
+                      child: IconButton.filled(
+                        onPressed: _togglePlayback,
+                        tooltip: _isPlaying ? 'Stop' : 'Play',
+                        padding: EdgeInsets.zero,
+                        style: IconButton.styleFrom(
+                          shape: const CircleBorder(),
+                        ),
+                        icon: Icon(
+                          _isPlaying ? Icons.stop : Icons.play_arrow,
+                          size: 36,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildNavigationButton(
-                    icon: Icons.chevron_right,
-                    tooltip: 'Вперёд',
-                    onPressed: _currentItemIndex < _items.length - 1
-                        ? () => _navigateToItem(_currentItemIndex + 1)
-                        : null,
-                  ),
-                  const SizedBox(width: 6),
-                  _buildNavigationButton(
-                    icon: Icons.last_page,
-                    tooltip: 'В конец',
-                    onPressed: _currentItemIndex < _items.length - 1
-                        ? () => _navigateToItem(_items.length - 1)
-                        : null,
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    _buildNavigationButton(
+                      icon: Icons.chevron_right,
+                      tooltip: 'Вперёд',
+                      onPressed: _currentItemIndex < _items.length - 1
+                          ? () => _navigateToItem(_currentItemIndex + 1)
+                          : null,
+                    ),
+                    const SizedBox(width: 6),
+                    _buildNavigationButton(
+                      icon: Icons.last_page,
+                      tooltip: 'В конец',
+                      onPressed: _currentItemIndex < _items.length - 1
+                          ? () => _navigateToItem(_items.length - 1)
+                          : null,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

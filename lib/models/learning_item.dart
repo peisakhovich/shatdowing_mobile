@@ -32,7 +32,7 @@ class LearningItem {
       translation: json['translate_text'] as String?,
       pauseBeforeTranslation: json['pause_ms'] as int,
       speed: (json['speed'] as num).toDouble(),
-      repeatCount: json['repeat_count'] as int,
+      repeatCount: (json['repeat_count'] as int?) ?? 0,
       phraseAudioPath: '',
       translationAudioPath: null,
     );
