@@ -4,6 +4,8 @@ import '../models/user_account.dart';
 import '../services/user_session.dart';
 import 'login_screen.dart';
 import 'set_selection_screen.dart';
+import '../models/user_set.dart';
+import 'player_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -16,6 +18,34 @@ class SettingsScreen extends StatelessWidget {
     if (account != null) {
       UserSession.instance.login(account);
     }
+  }
+
+  Future<void> _openSetSelection(BuildContext context) async {
+    debugPrint('[SETTINGS] Opening set selection');
+
+    final selectedSet = await Navigator.of(context).push<UserSet>(
+      MaterialPageRoute(builder: (context) => const SetSelectionScreen()),
+    );
+
+    debugPrint(
+      '[SETTINGS] Selection returned: '
+      '${selectedSet?.setId} - ${selectedSet?.setName}',
+    );
+
+    if (selectedSet == null || !context.mounted) {
+      debugPrint('[SETTINGS] Selection cancelled');
+      return;
+    }
+
+    debugPrint(
+      '[SETTINGS] Opening PlayerScreen with setId=${selectedSet.setId}',
+    );
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => PlayerScreen(setId: selectedSet.setId),
+      ),
+    );
   }
 
   @override
@@ -65,11 +95,7 @@ class SettingsScreen extends StatelessWidget {
                           return;
                         }
 
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const SetSelectionScreen(),
-                          ),
-                        );
+                        _openSetSelection(context);
                       },
                     ),
                   ],

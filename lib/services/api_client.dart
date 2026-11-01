@@ -74,6 +74,35 @@ class ApiClient {
         .toList();
   }
 
+  Future<List<UserSet>> getMobileReadySets(int userId) async {
+    final uri = Uri.parse('$_baseUrl/mobile/sets')
+        .replace(queryParameters: {'user_id': userId.toString()});
+
+    final response = await http.get(
+      uri,
+      headers: {'X-API-Key': _apiKey, 'Accept': 'application/json'},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Не удалось получить список готовых мобильных наборов. '
+        'HTTP ${response.statusCode}: ${response.body}',
+      );
+    }
+
+    final dynamic decoded = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (decoded is! List) {
+      throw const FormatException(
+        'Ответ сервера должен содержать список наборов.',
+      );
+    }
+
+    return decoded
+        .map((item) => UserSet.fromJson(Map<String, dynamic>.from(item as Map)))
+        .toList();
+  }
+
   Future<Map<String, dynamic>> getSet(int setId) async {
     final uri = Uri.parse('$_baseUrl/sets/$setId/items');
 

@@ -30,7 +30,7 @@ class _SetSelectionScreenState extends State<SetSelectionScreen> {
       return;
     }
 
-    _setsFuture = _apiClient.getUserSets(account.userId);
+    _setsFuture = _apiClient.getMobileReadySets(account.userId);
   }
 
   void _retryLoading() {
