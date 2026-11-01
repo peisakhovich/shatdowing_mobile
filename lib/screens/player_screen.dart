@@ -568,18 +568,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return !mounted || !_isPlaying || generation != _playbackGeneration;
   }
 
-  /// Ожидание небольшими отрезками позволяет быстро реагировать на Stop.
+  /// Ожидание с учётом фактически прошедшего времени.
+  /// После пробуждения телефона оставшаяся пауза пересчитывается.
   Future<void> _executeWait(Duration duration, int generation) async {
-    var remaining = duration;
-    const interval = Duration(milliseconds: 50);
+    if (duration <= Duration.zero) return;
 
-    while (remaining > Duration.zero) {
-      if (_isPlaybackCancelled(generation)) return;
+    final deadline = DateTime.now().add(duration);
 
-      final chunk = remaining > interval ? interval : remaining;
+    while (!_isPlaybackCancelled(generation)) {
+      final remaining = deadline.difference(DateTime.now());
 
-      await Future.delayed(chunk);
-      remaining -= chunk;
+      if (remaining <= Duration.zero) {
+        return;
+      }
+
+      const interval = Duration(milliseconds: 50);
+
+      await Future.delayed(remaining > interval ? interval : remaining);
     }
   }
 
