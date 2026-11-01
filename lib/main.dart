@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 
 import 'screens/player_screen.dart';
+import 'services/user_session.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Восстанавливаем пользователя до запуска интерфейса.
+  await UserSession.instance.restoreSession();
+
   runApp(const SoundLanguageStudioApp());
 }
 
