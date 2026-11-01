@@ -49,9 +49,16 @@ class LocalSessionStorage {
     return File('${directory.path}/$_currentIndexFileName');
   }
 
-  /// Сохраняет учебный набор, его элементы и текущую позицию.
-  Future<void> saveLearningSet(LearningSet learningSet) async {
+  /// Сохраняет учебный набор, его владельца и текущую позицию.
+  ///
+  /// ownerUserId == null означает гостевую сессию.
+  Future<void> saveLearningSet(
+    LearningSet learningSet, {
+    int? ownerUserId,
+  }) async {
     final json = <String, dynamic>{
+      'session_owner_type': ownerUserId == null ? 'guest' : 'user',
+      'session_owner_user_id': ownerUserId,
       'set': {
         'set_id': learningSet.setId,
         'set_name': learningSet.setName,
@@ -80,8 +87,50 @@ class LocalSessionStorage {
     await saveCurrentIndex(learningSet.currentIndex);
   }
 
+  /// Проверяет, принадлежит ли сохранённая сессия пользователю.
+  Future<bool> isSessionOwnedByUser(int userId) async {
+    final file = await _getSessionFile();
+
+    if (!await file.exists()) {
+      return false;
+    }
+
+    try {
+      final decoded = jsonDecode(await file.readAsString());
+
+      if (decoded is! Map<String, dynamic>) {
+        return false;
+      }
+
+      return decoded['session_owner_type'] == 'user' &&
+          decoded['session_owner_user_id'] == userId;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Проверяет, является ли сохранённая сессия гостевой.
+  Future<bool> isGuestSession() async {
+    final file = await _getSessionFile();
+
+    if (!await file.exists()) {
+      return false;
+    }
+
+    try {
+      final decoded = jsonDecode(await file.readAsString());
+
+      if (decoded is! Map<String, dynamic>) {
+        return false;
+      }
+
+      return decoded['session_owner_type'] == 'guest';
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Загружает учебный набор вместе с путями к локальным MP3.
-  /// Возвращает null, если сохранённого набора ещё нет.
   Future<LearningSet?> loadLearningSet() async {
     final file = await _getSessionFile();
 
@@ -195,7 +244,6 @@ class LocalSessionStorage {
   }
 
   /// Загружает индекс текущего элемента.
-  /// Если позиция не сохранена, возвращает 0.
   Future<int> loadCurrentIndex() async {
     return await _readCurrentIndex() ?? 0;
   }
@@ -217,7 +265,7 @@ class LocalSessionStorage {
     return index;
   }
 
-  /// Удаляет локальную серверную сессию и её аудиофайлы.
+  /// Удаляет локальную учебную сессию и её аудиофайлы.
   Future<void> clearLearningSession() async {
     final directory = await _getSessionDirectory();
 

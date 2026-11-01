@@ -15,6 +15,7 @@ import '../widgets/player/pause_settings.dart';
 import '../widgets/player/player_controls.dart';
 import '../services/default_session_service.dart';
 import 'settings_screen.dart';
+import '../services/user_session.dart';
 
 class PlayerScreen extends StatefulWidget {
   final int setId;
@@ -68,6 +69,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
   int _downloadCompleted = 0;
   int _downloadTotal = 0;
 
+  // Фактически загруженный учебный набор.
+  late int _activeSetId;
+
+  // Владелец пользовательской сессии.
+  // null означает гостевую сессию.
+  int? _activeOwnerUserId;
+
   LearningItem? get _currentItem {
     if (_items.isEmpty ||
         _currentItemIndex < 0 ||
@@ -99,6 +107,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   void initState() {
     super.initState();
+    _activeSetId = widget.setId;
     _loadConfig();
     _loadLearningSet();
   }
@@ -162,21 +171,46 @@ class _PlayerScreenState extends State<PlayerScreen> {
     try {
       LearningSet? learningSet;
 
-      // 1. Проверяем сохранённый пользовательский набор.
-      final cachedSet = await _localSessionStorage.loadLearningSet();
+      final userSession = UserSession.instance;
+      final account = userSession.account;
+      final selectedSetId = userSession.selectedSetId;
 
-      if (cachedSet != null && cachedSet.setId == widget.setId) {
-        _updateDownloadProgress(
-          setName: cachedSet.setName,
-          currentFile: 'Проверка сохранённых аудиофайлов…',
-        );
-
-        learningSet = await _restoreCachedSetWithAudio(cachedSet);
+      // 1. Определяем владельца и ID набора.
+      if (account != null &&
+          (selectedSetId != null || !widget.useDefaultSession)) {
+        _activeOwnerUserId = account.userId;
+        _activeSetId = selectedSetId ?? widget.setId;
+      } else {
+        _activeOwnerUserId = null;
+        _activeSetId = widget.setId;
       }
 
-      // 2. Если пользовательского набора нет и запрошен набор 69,
-      // загружаем встроенный стартовый набор.
-      if (learningSet == null && widget.useDefaultSession) {
+      // 2. Проверяем локальную сессию только для её владельца.
+      if (_activeOwnerUserId != null) {
+        final cachedSet = await _localSessionStorage.loadLearningSet();
+
+        final isOwner = await _localSessionStorage.isSessionOwnedByUser(
+          _activeOwnerUserId!,
+        );
+
+        if (cachedSet != null && isOwner && cachedSet.setId == _activeSetId) {
+          _updateDownloadProgress(
+            setName: cachedSet.setName,
+            currentFile: 'Проверка сохранённых аудиофайлов…',
+          );
+
+          learningSet = await _restoreCachedSetWithAudio(cachedSet);
+        } else if (cachedSet != null) {
+          // Локальные данные принадлежат другому пользователю
+          // или относятся к другому набору.
+          await _localSessionStorage.clearLearningSession();
+        }
+      }
+
+      // 3. Если это гостевая сессия, загружаем встроенный набор.
+      if (learningSet == null &&
+          _activeOwnerUserId == null &&
+          widget.useDefaultSession) {
         _updateDownloadProgress(
           setName: 'Стартовый учебный набор',
           currentFile: 'Загрузка встроенного набора…',
@@ -185,7 +219,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
         learningSet = await _defaultSessionService.loadDefaultSession();
       }
 
-      // 3. Для остальных случаев используем API.
+      // 4. Если пользователь выбрал свой набор,
+      // загружаем его через API.
       learningSet ??= await _downloadAndCacheLearningSet();
 
       if (learningSet.items.isEmpty) {
@@ -195,7 +230,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (!mounted) return;
 
       setState(() {
-        _items = learningSet!.items;
+        _activeSetId = learningSet!.setId;
+        _items = learningSet.items;
         _currentItemIndex = learningSet.currentIndex;
         _updateCurrentTexts();
         _isLoadingSet = false;
@@ -274,7 +310,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       currentFile: 'Получение списка элементов с сервера…',
     );
 
-    final apiSet = await _apiClient.getLearningSet(widget.setId);
+    final apiSet = await _apiClient.getLearningSet(_activeSetId);
 
     if (apiSet.items.isEmpty) {
       throw const FormatException('API вернул набор без учебных элементов.');
@@ -317,7 +353,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         );
 
         final phraseBytes = await _apiClient.getItemAudio(
-          setId: widget.setId,
+          setId: _activeSetId,
           itemId: item.id,
           audioType: 'phrase',
         );
@@ -352,7 +388,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           );
 
           final translationBytes = await _apiClient.getItemAudio(
-            setId: widget.setId,
+            setId: _activeSetId,
             itemId: item.id,
             audioType: 'translate',
           );
@@ -397,7 +433,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     _updateDownloadProgress(currentFile: 'Сохранение данных набора…');
 
-    await _localSessionStorage.saveLearningSet(cachedSet);
+    await _localSessionStorage.saveLearningSet(
+      cachedSet,
+      ownerUserId: _activeOwnerUserId,
+    );
 
     _updateDownloadProgress(
       currentFile: 'Загрузка завершена',
@@ -409,6 +448,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   /// Сохраняет позицию элемента без прерывания воспроизведения.
   Future<void> _saveCurrentIndex(int index) async {
+    // Гостевую позицию не сохраняем в пользовательскую сессию.
+    if (_activeOwnerUserId == null) return;
+
     try {
       await _localSessionStorage.saveCurrentIndex(index);
     } catch (error) {
@@ -575,7 +617,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final item = _items.firstWhere((item) => item.id == itemId);
 
     // Встроенный набор использует аудиофайлы из assets.
-    if (widget.setId == 69 && item.phraseAudioPath.startsWith('assets/')) {
+    if (item.phraseAudioPath.startsWith('assets/')) {
       final assetPath = audioType == 'phrase'
           ? item.phraseAudioPath
           : item.translationAudioPath;
@@ -602,7 +644,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
 
     final bytes = await _apiClient.getItemAudio(
-      setId: widget.setId,
+      setId: _activeSetId,
       itemId: itemId,
       audioType: audioType,
     );

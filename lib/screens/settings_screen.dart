@@ -1,25 +1,29 @@
 import 'package:flutter/material.dart';
 
 import '../models/user_account.dart';
+import '../models/user_set.dart';
 import '../services/user_session.dart';
+import '../services/local_session_storage.dart';
+
 import 'login_screen.dart';
 import 'set_selection_screen.dart';
-import '../models/user_set.dart';
 import 'player_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
+  /// Открывает экран входа.
   Future<void> _openLogin(BuildContext context) async {
     final account = await Navigator.of(context).push<UserAccount>(
       MaterialPageRoute(builder: (context) => const LoginScreen()),
     );
 
     if (account != null) {
-      UserSession.instance.login(account);
+      await UserSession.instance.login(account);
     }
   }
 
+  /// Открывает выбор учебного набора.
   Future<void> _openSetSelection(BuildContext context) async {
     debugPrint('[SETTINGS] Opening set selection');
 
@@ -37,6 +41,11 @@ class SettingsScreen extends StatelessWidget {
       return;
     }
 
+    // Сохраняем выбранный набор для текущего пользователя.
+    await UserSession.instance.selectSet(selectedSet.setId);
+
+    if (!context.mounted) return;
+
     debugPrint(
       '[SETTINGS] Opening PlayerScreen with setId=${selectedSet.setId}',
     );
@@ -46,6 +55,30 @@ class SettingsScreen extends StatelessWidget {
         builder: (context) =>
             PlayerScreen(setId: selectedSet.setId, useDefaultSession: false),
       ),
+    );
+  }
+
+  /// Выполняет выход и возвращает приложение к гостевой сессии.
+  Future<void> _logout(BuildContext context) async {
+    debugPrint('[SETTINGS] Logout started');
+
+    final localSessionStorage = LocalSessionStorage();
+    // Удаляем учётную запись и выбранный набор пользователя.
+    await UserSession.instance.logout();
+
+    // Удаляем пользовательский набор и скачанные MP3.
+    await localSessionStorage.clearLearningSession();
+
+    if (!context.mounted) return;
+
+    debugPrint('[SETTINGS] Opening guest session');
+
+    // Удаляем предыдущие экраны из стека навигации.
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (context) => PlayerScreen(setId: 69, useDefaultSession: true),
+      ),
+      (route) => false,
     );
   }
 
@@ -76,7 +109,7 @@ class SettingsScreen extends StatelessWidget {
                       trailing: const Icon(Icons.chevron_right),
                       onTap: account == null
                           ? () => _openLogin(context)
-                          : UserSession.instance.logout,
+                          : () => _logout(context),
                     ),
                     const Divider(height: 1),
                     ListTile(
@@ -123,7 +156,7 @@ class SettingsScreen extends StatelessWidget {
                           Text('Фамилия: ${account.lastName}'),
                         const SizedBox(height: 16),
                         OutlinedButton.icon(
-                          onPressed: UserSession.instance.logout,
+                          onPressed: () => _logout(context),
                           icon: const Icon(Icons.logout),
                           label: const Text('Выйти'),
                         ),
