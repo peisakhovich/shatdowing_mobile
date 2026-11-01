@@ -13,6 +13,7 @@ import '../services/player_config_service.dart';
 import '../widgets/player/adaptive_text_window.dart';
 import '../widgets/player/pause_settings.dart';
 import '../widgets/player/player_controls.dart';
+import '../services/default_session_service.dart';
 
 class PlayerScreen extends StatefulWidget {
   final int setId;
@@ -28,6 +29,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   final AudioPlayerService _audioPlayerService = AudioPlayerService();
   final ApiClient _apiClient = ApiClient();
   final LocalSessionStorage _localSessionStorage = LocalSessionStorage();
+  final DefaultSessionService _defaultSessionService = DefaultSessionService();
 
   PlayerConfig? _config;
   PlayerScenario? _selectedScenario;
@@ -144,7 +146,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       setState(() {
         _isLoadingSet = true;
         _setError = null;
-        _downloadSetName = 'Набор ${widget.setId}';
+        _downloadSetName = 'Проверка учебного набора';
         _downloadCurrentFile = 'Проверка локальных файлов…';
         _downloadCompleted = 0;
         _downloadTotal = 0;
@@ -154,6 +156,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     try {
       LearningSet? learningSet;
 
+      // 1. Проверяем сохранённый пользовательский набор.
       final cachedSet = await _localSessionStorage.loadLearningSet();
 
       if (cachedSet != null && cachedSet.setId == widget.setId) {
@@ -161,9 +164,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
           setName: cachedSet.setName,
           currentFile: 'Проверка сохранённых аудиофайлов…',
         );
+
         learningSet = await _restoreCachedSetWithAudio(cachedSet);
       }
 
+      // 2. Если пользовательского набора нет и запрошен набор 69,
+      // загружаем встроенный стартовый набор.
+      if (learningSet == null && widget.setId == 69) {
+        _updateDownloadProgress(
+          setName: 'Стартовый учебный набор',
+          currentFile: 'Загрузка встроенного набора…',
+        );
+
+        learningSet = await _defaultSessionService.loadDefaultSession();
+      }
+
+      // 3. Для остальных случаев используем API.
       learningSet ??= await _downloadAndCacheLearningSet();
 
       if (learningSet.items.isEmpty) {
@@ -550,6 +566,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
     required int itemId,
     required String audioType,
   }) async {
+    final item = _items.firstWhere((item) => item.id == itemId);
+
+    // Встроенный набор использует аудиофайлы из assets.
+    if (widget.setId == 69 && item.phraseAudioPath.startsWith('assets/')) {
+      final assetPath = audioType == 'phrase'
+          ? item.phraseAudioPath
+          : item.translationAudioPath;
+
+      if (assetPath == null || assetPath.isEmpty) {
+        throw StateError('Для элемента $itemId отсутствует аудио: $audioType.');
+      }
+
+      return assetPath;
+    }
+
+    // Пользовательский набор использует локальные MP3
+    // или загружает недостающие файлы через API.
     final localPath = await _localSessionStorage.getAudioPath(
       itemId: itemId,
       audioType: audioType,
@@ -611,9 +644,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     if (_isPlaybackCancelled(generation)) return;
 
-    // Проигрываем именно сохранённый MP3. Не создаём и не перезаписываем
-    // общий временный файл для каждой фразы и каждого перевода.
-    await _audioPlayerService.playFile(audioPath);
+    // Встроенные MP3 воспроизводим непосредственно из assets.
+    if (audioPath.startsWith('assets/')) {
+      await _audioPlayerService.playAsset(audioPath);
+    } else {
+      // Пользовательские MP3 воспроизводим из локальных файлов.
+      await _audioPlayerService.playFile(audioPath);
+    }
   }
 
   Future<void> _runCurrentScenario(int generation) async {

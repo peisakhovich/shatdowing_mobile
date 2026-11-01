@@ -29,3 +29,5 @@ flutter:
   assets:
     - assets/config/player_config.json
     - assets/audio_test/test.mp3
+    - assets/default_session/
+    - assets/default_session/audio/
