@@ -14,6 +14,7 @@ import '../widgets/player/adaptive_text_window.dart';
 import '../widgets/player/pause_settings.dart';
 import '../widgets/player/player_controls.dart';
 import '../services/default_session_service.dart';
+import 'settings_screen.dart';
 
 class PlayerScreen extends StatefulWidget {
   final int setId;
@@ -979,7 +980,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
               const SizedBox(height: 12),
               PlayerControls(
-                onSettings: null,
+                onSettings: () {
+                  unawaited(_audioPlayerService.stop());
+
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsScreen(),
+                    ),
+                  );
+                },
                 repeatEnabled: _repeatEnabled,
                 onRepeat: () {
                   setState(() {

@@ -3,12 +3,76 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/learning_set.dart';
+import '../models/user_account.dart';
+import '../models/user_set.dart';
 
 class ApiClient {
   static const String _baseUrl =
       'https://sa03-api-gxd7gve7a9gafnaz.polandcentral-01.azurewebsites.net/api';
 
   static const String _apiKey = 'ElvisPresly';
+
+  Future<UserAccount> login({
+    required String nickname,
+    required String password,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/login');
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'X-API-Key': _apiKey,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'nickname': nickname, 'password': password}),
+    );
+
+    final dynamic decoded = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (response.statusCode != 200) {
+      final message = decoded is Map<String, dynamic>
+          ? decoded['error']?.toString() ?? 'Ошибка входа'
+          : 'Ошибка входа';
+
+      throw Exception('$message (HTTP ${response.statusCode})');
+    }
+
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Некорректный ответ сервера при входе.');
+    }
+
+    return UserAccount.fromJson(decoded);
+  }
+
+  Future<List<UserSet>> getUserSets(int userId) async {
+    final uri = Uri.parse('$_baseUrl/sets')
+        .replace(queryParameters: {'user_id': userId.toString()});
+
+    final response = await http.get(
+      uri,
+      headers: {'X-API-Key': _apiKey, 'Accept': 'application/json'},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Не удалось получить список наборов. '
+        'HTTP ${response.statusCode}: ${response.body}',
+      );
+    }
+
+    final dynamic decoded = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (decoded is! List) {
+      throw const FormatException(
+        'Ответ сервера должен содержать список наборов.',
+      );
+    }
+
+    return decoded
+        .map((item) => UserSet.fromJson(Map<String, dynamic>.from(item as Map)))
+        .toList();
+  }
 
   Future<Map<String, dynamic>> getSet(int setId) async {
     final uri = Uri.parse('$_baseUrl/sets/$setId/items');
