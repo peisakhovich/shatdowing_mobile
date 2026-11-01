@@ -1,0 +1,78 @@
+{
+    "set": {
+        "set_id": 69,
+        "user_id": 2,
+        "user_nickname": "pga",
+        "set_index": 1038,
+        "set_name": "For  thin client application",
+        "set_description": "Multi language shadowing session",
+        "set_active": true,
+        "set_create_date": "2026-10-25T09:35:57",
+        "items_count": 3
+    },
+    "items": [
+        {
+            "item_id": 1565,
+            "item_order": 1,
+            "phrase_id": 722,
+            "difficulty": 1,
+            "phrase_text": "Listen carefully to the words.",
+            "translate_text": "Słuchaj uważnie słów.",
+            "phrase_code": "en",
+            "language_level": "A2",
+            "phrase_locale": "en-GB",
+            "phrase_voice": "en-GB-MaisieNeural",
+            "phrase_voice_gender": "Female",
+            "translate_code": "pl",
+            "translate_locale": "pl-PL",
+            "translate_voice": "pl-PL-ZofiaNeural",
+            "translate_voice_gender": "Female",
+            "pause_ms": 800,
+            "speed": 1.00,
+            "repeat_count": 1
+        },
+        {
+            "item_id": 1566,
+            "item_order": 2,
+            "phrase_id": 723,
+            "difficulty": 1,
+            "phrase_text": "Powtarzaj na głos i naśladuj wymowę.",
+            "translate_text": "Repeat aloud and imitate the pronunciation.",
+            "phrase_code": "pl",
+            "language_level": "A2",
+            "phrase_locale": "pl-PL",
+            "phrase_voice": "pl-PL-MarekNeural",
+            "phrase_voice_gender": "Male",
+            "translate_code": "en",
+            "translate_locale": "en-US",
+            "translate_voice": "en-US-ChristopherNeural",
+            "translate_voice_gender": "Male",
+            "pause_ms": 1500,
+            "speed": 1.00,
+            "repeat_count": 1
+        },
+        {
+            "item_id": 1567,
+            "item_order": 3,
+            "phrase_id": 724,
+            "difficulty": 1,
+            "phrase_text": "Every repeated phrase brings you closer to fluency.",
+            "translate_text": "Каждая повторённая фраза приближает тебя к свободной речи.",
+            "phrase_code": "en",
+            "language_level": "B1",
+            "phrase_locale": "en-GB",
+            "phrase_voice": "en-GB-ThomasNeural",
+            "phrase_voice_gender": "Male",
+            "translate_code": "ru",
+            "translate_locale": "ru-RU",
+            "translate_voice": "ru-RU-SvetlanaNeural",
+            "translate_voice_gender": "Female",
+            "pause_ms": 2500,
+            "speed": 1.00,
+            "repeat_count": 1
+        }
+    ],
+    "state": {
+        "current_index": 0
+    }
+}
