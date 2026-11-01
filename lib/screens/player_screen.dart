@@ -18,8 +18,13 @@ import 'settings_screen.dart';
 
 class PlayerScreen extends StatefulWidget {
   final int setId;
+  final bool useDefaultSession;
 
-  const PlayerScreen({super.key, this.setId = 69});
+  const PlayerScreen({
+    super.key,
+    this.setId = 69,
+    this.useDefaultSession = true,
+  });
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -171,7 +176,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
       // 2. Если пользовательского набора нет и запрошен набор 69,
       // загружаем встроенный стартовый набор.
-      if (learningSet == null && widget.setId == 69) {
+      if (learningSet == null && widget.useDefaultSession) {
         _updateDownloadProgress(
           setName: 'Стартовый учебный набор',
           currentFile: 'Загрузка встроенного набора…',

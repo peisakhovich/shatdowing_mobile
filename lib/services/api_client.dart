@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 
 import '../models/learning_set.dart';
 import '../models/user_account.dart';
@@ -149,12 +150,26 @@ class ApiClient {
       '$_baseUrl/sets/$setId/items/$itemId/mobile-audio/$audioType',
     );
 
+    debugPrint('[API] ===== AUDIO DOWNLOAD START =====');
+    debugPrint('[API] GET $uri');
+    debugPrint('[API] Set ID: $setId');
+    debugPrint('[API] Item ID: $itemId');
+    debugPrint('[API] Audio type: $audioType');
+
     final response = await http.get(
       uri,
       headers: {'X-API-Key': _apiKey, 'Accept': 'audio/mpeg'},
     );
 
+    debugPrint('[API] HTTP ${response.statusCode}');
+    debugPrint('[API] Content-Type: ${response.headers['content-type']}');
+    debugPrint('[API] Received bytes: ${response.bodyBytes.length}');
+
     if (response.statusCode != 200) {
+      debugPrint(
+        '[API] BODY: ${utf8.decode(response.bodyBytes, allowMalformed: true)}',
+      );
+
       throw Exception(
         'Не удалось загрузить аудио $audioType '
         'для элемента $itemId. '
@@ -165,6 +180,9 @@ class ApiClient {
     if (response.bodyBytes.isEmpty) {
       throw Exception('Сервер вернул пустой аудиофайл для элемента $itemId.');
     }
+
+    debugPrint('[API] Audio download successful.');
+    debugPrint('[API] ===== AUDIO DOWNLOAD END =====');
 
     return response.bodyBytes;
   }

@@ -43,7 +43,8 @@ class SettingsScreen extends StatelessWidget {
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (context) => PlayerScreen(setId: selectedSet.setId),
+        builder: (context) =>
+            PlayerScreen(setId: selectedSet.setId, useDefaultSession: false),
       ),
     );
   }
