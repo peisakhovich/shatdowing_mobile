@@ -16,6 +16,7 @@ import '../widgets/player/player_controls.dart';
 import '../services/default_session_service.dart';
 import 'settings_screen.dart';
 import '../services/user_session.dart';
+import '../services/device_wake_lock.dart';
 
 class PlayerScreen extends StatefulWidget {
   final int setId;
@@ -71,6 +72,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // Фактически загруженный учебный набор.
   late int _activeSetId;
+  String _currentSetName = '';
+  String _currentSetDescription = '';
 
   // Владелец пользовательской сессии.
   // null означает гостевую сессию.
@@ -231,6 +234,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
       setState(() {
         _activeSetId = learningSet!.setId;
+        _currentSetName = learningSet.setName;
+        _currentSetDescription = learningSet.setDescription;
+
         _items = learningSet.items;
         _currentItemIndex = learningSet.currentIndex;
         _updateCurrentTexts();
@@ -306,6 +312,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// Уже сохранённые файлы пропускаются. После каждого найденного или
   /// загруженного файла обновляется прогресс на экране.
   Future<LearningSet> _downloadAndCacheLearningSet() async {
+    await DeviceWakeLock.acquire();
+
+    try {
+      return await _downloadAndCacheLearningSetInternal();
+    } finally {
+      await DeviceWakeLock.release();
+    }
+  }
+
+  Future<LearningSet> _downloadAndCacheLearningSetInternal() async {
     _updateDownloadProgress(
       currentFile: 'Получение списка элементов с сервера…',
     );
@@ -768,6 +784,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Future<void> _runAllItems(int generation) async {
     try {
+      await DeviceWakeLock.acquire();
+
       while (!_isPlaybackCancelled(generation)) {
         final item = _items[_currentItemIndex];
 
@@ -811,6 +829,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
         );
       }
     } finally {
+      await DeviceWakeLock.release();
+
       if (mounted && generation == _playbackGeneration) {
         setState(() {
           _isPlaying = false;
@@ -1037,7 +1057,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) => const SettingsScreen(),
+                      builder: (context) => SettingsScreen(
+                        setName: _currentSetName,
+                        setDescription: _currentSetDescription,
+                        setId: _activeSetId,
+                      ),
                     ),
                   );
                 },

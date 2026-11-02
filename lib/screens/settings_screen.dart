@@ -10,7 +10,16 @@ import 'set_selection_screen.dart';
 import 'player_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+  final int setId;
+  final String setName;
+  final String setDescription;
+
+  const SettingsScreen({
+    super.key,
+    required this.setId,
+    required this.setName,
+    required this.setDescription,
+  });
 
   /// Открывает экран входа.
   Future<void> _openLogin(BuildContext context) async {
@@ -41,7 +50,6 @@ class SettingsScreen extends StatelessWidget {
       return;
     }
 
-    // Сохраняем выбранный набор для текущего пользователя.
     await UserSession.instance.selectSet(selectedSet.setId);
 
     if (!context.mounted) return;
@@ -63,17 +71,13 @@ class SettingsScreen extends StatelessWidget {
     debugPrint('[SETTINGS] Logout started');
 
     final localSessionStorage = LocalSessionStorage();
-    // Удаляем учётную запись и выбранный набор пользователя.
     await UserSession.instance.logout();
-
-    // Удаляем пользовательский набор и скачанные MP3.
     await localSessionStorage.clearLearningSession();
 
     if (!context.mounted) return;
 
     debugPrint('[SETTINGS] Opening guest session');
 
-    // Удаляем предыдущие экраны из стека навигации.
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
         builder: (context) => PlayerScreen(setId: 69, useDefaultSession: true),
@@ -135,6 +139,7 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
               ),
+
               if (account != null) ...[
                 const SizedBox(height: 16),
                 Card(
@@ -165,6 +170,28 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
               ],
+
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Текущий учебный набор',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 12),
+                      Text('Название: $setName'),
+                      const SizedBox(height: 8),
+                      Text('Описание: $setDescription'),
+                      const SizedBox(height: 8),
+                      Text('ID набора: $setId'),
+                    ],
+                  ),
+                ),
+              ),
             ],
           );
         },

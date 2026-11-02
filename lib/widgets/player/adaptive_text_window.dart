@@ -13,7 +13,7 @@ class AdaptiveTextWindow extends StatelessWidget {
     required this.text,
     required this.visible,
     required this.baseFontSize,
-    this.minFontSize = 12,
+    this.minFontSize = 8,
   });
 
   double _calculateFontSize({
@@ -23,6 +23,8 @@ class AdaptiveTextWindow extends StatelessWidget {
     required double maxHeight,
     required TextDirection textDirection,
     required TextScaler textScaler,
+    required TextHeightBehavior textHeightBehavior,
+    required Locale? locale,
   }) {
     if (text.trim().isEmpty || maxWidth <= 0 || maxHeight <= 0) {
       return baseFontSize;
@@ -37,11 +39,20 @@ class AdaptiveTextWindow extends StatelessWidget {
         textDirection: textDirection,
         textScaler: textScaler,
         textAlign: TextAlign.center,
+        textHeightBehavior: textHeightBehavior,
+        locale: locale,
       );
 
       painter.layout(maxWidth: maxWidth);
 
-      return painter.height <= maxHeight;
+      final heightFits = painter.height <= maxHeight + 0.5;
+
+      final lines = painter.computeLineMetrics();
+      final widthFits = lines.every((line) => line.width <= maxWidth + 0.5);
+
+      painter.dispose();
+
+      return heightFits && widthFits;
     }
 
     if (fits(baseFontSize)) {
@@ -52,10 +63,10 @@ class AdaptiveTextWindow extends StatelessWidget {
       return minFontSize;
     }
 
-    var low = minFontSize;
-    var high = baseFontSize;
+    double low = minFontSize;
+    double high = baseFontSize;
 
-    for (var i = 0; i < 16; i++) {
+    for (int i = 0; i < 24; i++) {
       final middle = (low + high) / 2;
 
       if (fits(middle)) {
@@ -93,44 +104,59 @@ class AdaptiveTextWindow extends StatelessWidget {
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        final baseStyle = TextStyle(fontSize: baseFontSize);
+                        final textDirection = Directionality.of(context);
+
+                        final textScaler = MediaQuery.textScalerOf(context);
+
+                        final locale = Localizations.maybeLocaleOf(context);
+
+                        final defaultStyle = DefaultTextStyle.of(context);
+
+                        final baseStyle = defaultStyle.style;
+
+                        final textHeightBehavior =
+                            defaultStyle.textHeightBehavior ??
+                            const TextHeightBehavior();
 
                         final fontSize = _calculateFontSize(
                           text: text,
                           style: baseStyle,
                           maxWidth: constraints.maxWidth,
                           maxHeight: constraints.maxHeight,
-                          textDirection: Directionality.of(context),
-                          textScaler: MediaQuery.textScalerOf(context),
+                          textDirection: textDirection,
+                          textScaler: textScaler,
+                          textHeightBehavior: textHeightBehavior,
+                          locale: locale,
                         );
-
-                        final painter = TextPainter(
-                          text: TextSpan(
-                            text: text,
-                            style: baseStyle.copyWith(fontSize: fontSize),
-                          ),
-                          textDirection: Directionality.of(context),
-                          textScaler: MediaQuery.textScalerOf(context),
-                          textAlign: TextAlign.center,
-                        )..layout(maxWidth: constraints.maxWidth);
-
-                        // Для исключительно длинных текстов, которые
-                        // не помещаются даже с минимальным размером,
-                        // оставляем возможность прокрутки.
-                        final needsScroll =
-                            painter.height > constraints.maxHeight;
 
                         final textWidget = Text(
                           text,
                           textAlign: TextAlign.center,
+                          softWrap: true,
+                          textScaler: textScaler,
+                          textHeightBehavior: textHeightBehavior,
+                          locale: locale,
                           style: baseStyle.copyWith(fontSize: fontSize),
                         );
 
-                        if (needsScroll) {
-                          return SingleChildScrollView(child: textWidget);
-                        }
-
-                        return Center(child: textWidget);
+                        return Scrollbar(
+                          thumbVisibility: true,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: SizedBox(
+                              width: constraints.maxWidth,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: constraints.maxHeight,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.center,
+                                  child: textWidget,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
                       },
                     ),
                   ),
