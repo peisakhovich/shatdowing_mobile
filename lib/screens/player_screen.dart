@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 
@@ -51,7 +52,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _isPlaying = false;
   bool _showTop = false;
   bool _showBottom = false;
-  bool _repeatEnabled = false;
+  bool _randomizerEnabled = false;
+  int _repeatMultiplier = 1;
 
   // Настройки пользователя не изменяют исходные данные LearningItem.
   double _pauseBeforeTranslationFactor = 1.0;
@@ -784,20 +786,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Future<void> _runAllItems(int generation) async {
     try {
-      await DeviceWakeLock.acquire();
-
       while (!_isPlaybackCancelled(generation)) {
-        final item = _items[_currentItemIndex];
+        final item = _currentItem;
+
+        if (item == null) {
+          break;
+        }
 
         // Если repeatCount отсутствует или равен 0,
-        // используем 1 повторение.
+        // используем одно базовое повторение.
         final baseRepeatCount = item.repeatCount > 0 ? item.repeatCount : 1;
 
-        // Выполняем полный сценарий текущего элемента.
-        // Состояние Repeat проверяется перед каждым повторением.
+        // Множитель применяется к индивидуальному количеству повторов.
+        final effectiveRepeatCount = baseRepeatCount * _repeatMultiplier;
+
         var repeat = 0;
 
-        while (repeat < baseRepeatCount * (_repeatEnabled ? 5 : 1)) {
+        while (repeat < effectiveRepeatCount) {
           if (_isPlaybackCancelled(generation)) return;
 
           await _runCurrentScenario(generation);
@@ -807,11 +812,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
           repeat++;
         }
 
-        if (_currentItemIndex >= _items.length - 1) {
-          break;
+        // Обычный последовательный режим.
+        if (!_randomizerEnabled) {
+          if (_currentItemIndex >= _items.length - 1) {
+            break;
+          }
         }
 
-        final nextIndex = _currentItemIndex + 1;
+        // Randomizer выбирает любой элемент из всего набора.
+        // Повторное выпадение текущего элемента разрешено.
+        final int nextIndex;
+
+        if (_randomizerEnabled) {
+          nextIndex = Random().nextInt(_items.length);
+        } else {
+          nextIndex = _currentItemIndex + 1;
+        }
 
         setState(() {
           _currentItemIndex = nextIndex;
@@ -829,8 +845,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         );
       }
     } finally {
-      await DeviceWakeLock.release();
-
       if (mounted && generation == _playbackGeneration) {
         setState(() {
           _isPlaying = false;
@@ -1032,6 +1046,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     _pauseBetweenSentencesMs = value;
                   });
                 },
+                repeatMultiplier: _repeatMultiplier,
+                onRepeatMultiplierChanged: (value) {
+                  setState(() {
+                    _repeatMultiplier = value;
+                  });
+                },
               ),
               const SizedBox(height: 4),
               Text(
@@ -1065,10 +1085,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ),
                   );
                 },
-                repeatEnabled: _repeatEnabled,
-                onRepeat: () {
+                randomizerEnabled: _randomizerEnabled,
+                onRandomizer: () {
                   setState(() {
-                    _repeatEnabled = !_repeatEnabled;
+                    _randomizerEnabled = !_randomizerEnabled;
                   });
                 },
                 child: Row(

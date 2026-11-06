@@ -3,15 +3,15 @@ import 'package:flutter/material.dart';
 class PlayerControls extends StatelessWidget {
   final Widget child;
   final VoidCallback? onSettings;
-  final VoidCallback? onRepeat;
-  final bool repeatEnabled;
+  final VoidCallback? onRandomizer;
+  final bool randomizerEnabled;
 
   const PlayerControls({
     super.key,
     required this.child,
     required this.onSettings,
-    required this.onRepeat,
-    this.repeatEnabled = false,
+    required this.onRandomizer,
+    this.randomizerEnabled = false,
   });
 
   Widget _buildSideButton({
@@ -56,10 +56,12 @@ class PlayerControls extends StatelessWidget {
         const SizedBox(width: 12),
         _buildSideButton(
           context: context,
-          icon: Icons.repeat,
-          tooltip: repeatEnabled ? 'Повтор включён: ×5' : 'Повтор выключен',
-          onPressed: onRepeat,
-          selected: repeatEnabled,
+          icon: Icons.shuffle,
+          tooltip: randomizerEnabled
+              ? 'Randomizer включён'
+              : 'Randomizer выключен',
+          onPressed: onRandomizer,
+          selected: randomizerEnabled,
         ),
       ],
     );
