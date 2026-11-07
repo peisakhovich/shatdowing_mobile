@@ -39,12 +39,16 @@ class BluetoothAudioHandler extends BaseAudioHandler {
   }
 
   /// Обновляет название текущего учебного элемента.
-  void updateTrack({required String title, required int trackNumber}) {
+  void updateTrack({
+    required String title,
+    required int trackNumber,
+    required int totalTracks,
+  }) {
     mediaItem.add(
       MediaItem(
         id: 'track-$trackNumber',
         title: title.isEmpty ? 'Sound Language Studio' : title,
-        artist: 'Track $trackNumber',
+        artist: '$trackNumber / $totalTracks',
         album: 'Sound Language Studio',
       ),
     );

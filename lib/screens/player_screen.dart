@@ -552,6 +552,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     BluetoothAudioService.handler.updateTrack(
       title: _phraseText,
       trackNumber: _currentItemIndex + 1,
+      totalTracks: _items.length,
     );
   }
 
