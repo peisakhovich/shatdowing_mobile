@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../services/bluetooth_audio_service.dart';
 import '../models/learning_item.dart';
 import '../models/learning_set.dart';
 import '../models/player_scenario.dart';
@@ -18,6 +19,7 @@ import '../services/default_session_service.dart';
 import 'settings_screen.dart';
 import '../services/user_session.dart';
 import '../services/device_wake_lock.dart';
+import '../services/scenario_pause_controller.dart';
 
 class PlayerScreen extends StatefulWidget {
   final int setId;
@@ -39,6 +41,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
   final ApiClient _apiClient = ApiClient();
   final LocalSessionStorage _localSessionStorage = LocalSessionStorage();
   final DefaultSessionService _defaultSessionService = DefaultSessionService();
+  final ScenarioPauseController _pauseController = ScenarioPauseController();
+
+  bool _isPaused = false;
+
+  StreamSubscription<dynamic>? _bluetoothCommandSubscription;
 
   PlayerConfig? _config;
   PlayerScenario? _selectedScenario;
@@ -109,9 +116,69 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return (_downloadCompleted / _downloadTotal).clamp(0.0, 1.0);
   }
 
+  void _pauseScenario() {
+    if (!_isPlaying || _isPaused) return;
+
+    _isPaused = true;
+    _pauseController.pause();
+
+    // Останавливаем звук, сохраняя текущую позицию.
+    // Сервис также запомнит паузу во время загрузки MP3.
+    unawaited(_audioPlayerService.pause());
+
+    BluetoothAudioService.handler.updatePlayingState(false);
+
+    debugPrint('[BLUETOOTH] Scenario paused');
+  }
+
+  void _resumeScenario() {
+    if (!_isPlaying || !_isPaused) return;
+
+    _isPaused = false;
+    _pauseController.resume();
+
+    // Сервис сам определит, нужно ли продолжить
+    // уже начатое воспроизведение или разрешить запуск MP3.
+    unawaited(_audioPlayerService.resume());
+
+    BluetoothAudioService.handler.updatePlayingState(true);
+
+    debugPrint('[BLUETOOTH] Scenario resumed');
+  }
+
   @override
   void initState() {
     super.initState();
+
+    _bluetoothCommandSubscription = BluetoothAudioService.handler.customEvent
+        .listen((event) {
+          if (!mounted) return;
+
+          debugPrint('[BLUETOOTH] Command received: $event');
+
+          switch (event) {
+            case 'pause':
+              _pauseScenario();
+              break;
+
+            case 'play':
+              _resumeScenario();
+              break;
+
+            case 'next':
+              if (_items.isNotEmpty) {
+                _navigateToItem(_currentItemIndex + 1);
+              }
+              break;
+
+            case 'previous':
+              if (_items.isNotEmpty) {
+                _navigateToItem(_currentItemIndex - 1);
+              }
+              break;
+          }
+        });
+
     _activeSetId = widget.setId;
     _loadConfig();
     _loadLearningSet();
@@ -530,23 +597,37 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _togglePlayback() {
+    // Обычная остановка кнопкой Stop.
     if (_isPlaying) {
       setState(() {
         _playbackGeneration++;
         _isPlaying = false;
+        _isPaused = false;
       });
 
+      // Снимаем Bluetooth-паузу и сбрасываем её состояние.
+      _pauseController.reset();
+
+      // Останавливаем MP3 и обновляем состояние MediaSession.
       unawaited(_audioPlayerService.stop());
+      BluetoothAudioService.handler.updatePlayingState(false);
+
       return;
     }
 
     if (_items.isEmpty) return;
+
+    // Перед новым запуском убираем возможное старое состояние паузы.
+    _pauseController.reset();
+    _isPaused = false;
 
     final generation = ++_playbackGeneration;
 
     setState(() {
       _isPlaying = true;
     });
+
+    BluetoothAudioService.handler.updatePlayingState(true);
 
     unawaited(_runAllItems(generation));
   }
@@ -586,24 +667,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return !mounted || !_isPlaying || generation != _playbackGeneration;
   }
 
-  /// Ожидание с учётом фактически прошедшего времени.
-  /// После пробуждения телефона оставшаяся пауза пересчитывается.
+  /// Ожидание с учётом Bluetooth-паузы.
+  /// Время, проведённое на паузе, не учитывается.
   Future<void> _executeWait(Duration duration, int generation) async {
     if (duration <= Duration.zero) return;
 
-    final deadline = DateTime.now().add(duration);
-
-    while (!_isPlaybackCancelled(generation)) {
-      final remaining = deadline.difference(DateTime.now());
-
-      if (remaining <= Duration.zero) {
-        return;
-      }
-
-      const interval = Duration(milliseconds: 50);
-
-      await Future.delayed(remaining > interval ? interval : remaining);
-    }
+    await _pauseController.wait(
+      duration,
+      isCancelled: () => _isPlaybackCancelled(generation),
+    );
   }
 
   Duration _getWaitDuration(ScenarioAction action) {
@@ -715,11 +787,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     if (_isPlaybackCancelled(generation)) return;
 
-    // Встроенные MP3 воспроизводим непосредственно из assets.
+    // Не начинаем воспроизведение, пока действует Bluetooth-пауза.
+    await _pauseController.waitWhilePaused();
+
+    if (_isPlaybackCancelled(generation)) return;
+
     if (audioPath.startsWith('assets/')) {
       await _audioPlayerService.playAsset(audioPath);
     } else {
-      // Пользовательские MP3 воспроизводим из локальных файлов.
       await _audioPlayerService.playFile(audioPath);
     }
   }
@@ -729,6 +804,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (scenario == null) return;
 
     for (final action in scenario.actions) {
+      if (_isPlaybackCancelled(generation)) return;
+
+      // Если включена Bluetooth-пауза, ждём её снятия.
+      await _pauseController.waitWhilePaused();
+
       if (_isPlaybackCancelled(generation)) return;
 
       switch (action.action) {
@@ -848,7 +928,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (mounted && generation == _playbackGeneration) {
         setState(() {
           _isPlaying = false;
+          _isPaused = false;
         });
+
+        _pauseController.reset();
+
+        BluetoothAudioService.handler.updatePlayingState(false);
       }
     }
   }
@@ -942,7 +1027,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
+    unawaited(_bluetoothCommandSubscription?.cancel() ?? Future<void>.value());
+
     unawaited(_audioPlayerService.dispose());
+
     super.dispose();
   }
 

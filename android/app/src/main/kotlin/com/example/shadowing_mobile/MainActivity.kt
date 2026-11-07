@@ -1,13 +1,12 @@
-
 package com.example.shadowing_mobile
 
 import android.content.Context
 import android.os.PowerManager
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity() {
+class MainActivity : AudioServiceActivity() {
 
     private val channelName = "com.example.shadowing_mobile/wake_lock"
 

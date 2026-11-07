@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 
 import 'screens/player_screen.dart';
 import 'services/user_session.dart';
+import 'services/bluetooth_audio_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Восстанавливаем пользователя до запуска интерфейса.
   await UserSession.instance.restoreSession();
+
+  // Инициализируем Android MediaSession.
+  await BluetoothAudioService.initialize();
 
   runApp(const SoundLanguageStudioApp());
 }
