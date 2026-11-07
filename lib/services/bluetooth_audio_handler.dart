@@ -2,6 +2,16 @@ import 'package:audio_service/audio_service.dart';
 
 class BluetoothAudioHandler extends BaseAudioHandler {
   BluetoothAudioHandler() {
+    // Название аудиосессии для Bluetooth-устройств.
+    mediaItem.add(
+      const MediaItem(
+        id: 'sound-language-studio',
+        title: 'Sound Language Studio',
+        artist: 'Shadowing Player',
+        album: 'Language Practice',
+      ),
+    );
+
     _publishPlaybackState(playing: false);
   }
 
@@ -14,9 +24,7 @@ class BluetoothAudioHandler extends BaseAudioHandler {
           MediaControl.skipToNext,
         ],
         androidCompactActionIndices: const [0, 1, 2],
-        processingState: playing
-            ? AudioProcessingState.ready
-            : AudioProcessingState.idle,
+        processingState: AudioProcessingState.ready,
         playing: playing,
         updatePosition: Duration.zero,
         bufferedPosition: Duration.zero,
@@ -28,6 +36,18 @@ class BluetoothAudioHandler extends BaseAudioHandler {
   /// Обновление состояния из основного интерфейса.
   void updatePlayingState(bool playing) {
     _publishPlaybackState(playing: playing);
+  }
+
+  /// Обновляет название текущего учебного элемента.
+  void updateTrack({required String title, required int trackNumber}) {
+    mediaItem.add(
+      MediaItem(
+        id: 'track-$trackNumber',
+        title: title.isEmpty ? 'Sound Language Studio' : title,
+        artist: 'Track $trackNumber',
+        album: 'Sound Language Studio',
+      ),
+    );
   }
 
   @override

@@ -548,6 +548,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     _phraseText = item?.phrase ?? '';
     _translateText = item?.translation ?? '';
+
+    BluetoothAudioService.handler.updateTrack(
+      title: _phraseText,
+      trackNumber: _currentItemIndex + 1,
+    );
   }
 
   void _selectScenario(String? key) {
