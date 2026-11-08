@@ -7,15 +7,43 @@ import '../models/learning_item.dart';
 import '../models/learning_set.dart';
 
 class LocalSessionStorage {
-  static const String _sessionDirectoryName = 'learning_session';
+  static const String _legacySessionDirectoryName = 'learning_session';
+  static const String _sessionsDirectoryName = 'learning_sessions';
   static const String _sessionFileName = 'learning_set.json';
   static const String _audioDirectoryName = 'audio';
   static const String _currentIndexFileName = 'current_index.txt';
 
+  final int? _ownerUserId;
+  final int? _setId;
+
+  LocalSessionStorage({this._ownerUserId, this._setId});
+
+  /// Возвращает каталог текущей сессии.
+  ///
+  /// Если setId не указан, используется старый каталог
+  /// learning_session для совместимости.
+  ///
+  /// Если setId указан, создаётся отдельный каталог
+  /// для конкретного пользователя и набора.
   Future<Directory> _getSessionDirectory() async {
     final appDirectory = await getApplicationDocumentsDirectory();
 
-    final directory = Directory('${appDirectory.path}/$_sessionDirectoryName');
+    late final Directory directory;
+
+    if (_setId == null) {
+      directory = Directory(
+        '${appDirectory.path}/$_legacySessionDirectoryName',
+      );
+    } else {
+      final ownerDirectory = _ownerUserId == null
+          ? 'guest'
+          : 'user_$_ownerUserId';
+
+      directory = Directory(
+        '${appDirectory.path}/$_sessionsDirectoryName/'
+        '$ownerDirectory/set_$_setId',
+      );
+    }
 
     if (!await directory.exists()) {
       await directory.create(recursive: true);
@@ -26,6 +54,7 @@ class LocalSessionStorage {
 
   Future<File> _getSessionFile() async {
     final directory = await _getSessionDirectory();
+
     return File('${directory.path}/$_sessionFileName');
   }
 
@@ -265,12 +294,35 @@ class LocalSessionStorage {
     return index;
   }
 
-  /// Удаляет локальную учебную сессию и её аудиофайлы.
+  /// Удаляет локальную текущую учебную сессию и её аудиофайлы.
   Future<void> clearLearningSession() async {
     final directory = await _getSessionDirectory();
 
     if (await directory.exists()) {
       await directory.delete(recursive: true);
+    }
+  }
+
+  /// Удаляет все локальные учебные сессии.
+  ///
+  /// Используется, например, при выходе из аккаунта.
+  Future<void> clearAllLearningSessions() async {
+    final appDirectory = await getApplicationDocumentsDirectory();
+
+    final legacyDirectory = Directory(
+      '${appDirectory.path}/$_legacySessionDirectoryName',
+    );
+
+    final sessionsDirectory = Directory(
+      '${appDirectory.path}/$_sessionsDirectoryName',
+    );
+
+    if (await legacyDirectory.exists()) {
+      await legacyDirectory.delete(recursive: true);
+    }
+
+    if (await sessionsDirectory.exists()) {
+      await sessionsDirectory.delete(recursive: true);
     }
   }
 }

@@ -14,11 +14,16 @@ class SettingsScreen extends StatelessWidget {
   final String setName;
   final String setDescription;
 
+  final Route<dynamic>? previousPlayerRoute;
+  final Future<void> Function()? stopPreviousPlayer;
+
   const SettingsScreen({
     super.key,
     required this.setId,
     required this.setName,
     required this.setDescription,
+    this.previousPlayerRoute,
+    this.stopPreviousPlayer,
   });
 
   /// Открывает экран входа.
@@ -50,18 +55,40 @@ class SettingsScreen extends StatelessWidget {
       return;
     }
 
-    await UserSession.instance.selectSet(selectedSet.setId);
-
-    if (!context.mounted) return;
+    final navigator = Navigator.of(context);
+    final oldPlayerRoute = previousPlayerRoute;
+    final stopOldPlayer = stopPreviousPlayer;
 
     debugPrint(
       '[SETTINGS] Opening PlayerScreen with setId=${selectedSet.setId}',
     );
 
-    Navigator.of(context).pushReplacement(
+    navigator.pushReplacement(
       MaterialPageRoute(
-        builder: (context) =>
-            PlayerScreen(setId: selectedSet.setId, useDefaultSession: false),
+        builder: (context) => PlayerScreen(
+          setId: selectedSet.setId,
+          useDefaultSession: false,
+          onSessionReady: () async {
+            debugPrint('[SETTINGS] New session loaded successfully');
+
+            // Обновляем выбранный набор только после успешной загрузки.
+            await UserSession.instance.selectSet(selectedSet.setId);
+
+            // Останавливаем прежний плеер.
+            if (stopOldPlayer != null) {
+              await stopOldPlayer();
+            }
+
+            // Удаляем прежний PlayerScreen из стека навигации.
+            if (navigator.mounted &&
+                oldPlayerRoute != null &&
+                oldPlayerRoute.isActive) {
+              navigator.removeRoute(oldPlayerRoute);
+            }
+
+            debugPrint('[SETTINGS] Previous player route removed');
+          },
+        ),
       ),
     );
   }
@@ -70,9 +97,15 @@ class SettingsScreen extends StatelessWidget {
   Future<void> _logout(BuildContext context) async {
     debugPrint('[SETTINGS] Logout started');
 
+    // Сначала останавливаем прежнее воспроизведение.
+    if (stopPreviousPlayer != null) {
+      await stopPreviousPlayer!();
+    }
+
     final localSessionStorage = LocalSessionStorage();
+
     await UserSession.instance.logout();
-    await localSessionStorage.clearLearningSession();
+    await localSessionStorage.clearAllLearningSessions();
 
     if (!context.mounted) return;
 

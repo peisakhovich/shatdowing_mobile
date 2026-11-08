@@ -25,10 +25,14 @@ class PlayerScreen extends StatefulWidget {
   final int setId;
   final bool useDefaultSession;
 
+  // Вызывается после успешной загрузки новой сессии.
+  final Future<void> Function()? onSessionReady;
+
   const PlayerScreen({
     super.key,
     this.setId = 69,
     this.useDefaultSession = true,
+    this.onSessionReady,
   });
 
   @override
@@ -39,7 +43,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   final PlayerConfigService _configService = PlayerConfigService();
   final AudioPlayerService _audioPlayerService = AudioPlayerService();
   final ApiClient _apiClient = ApiClient();
-  final LocalSessionStorage _localSessionStorage = LocalSessionStorage();
+  late LocalSessionStorage _localSessionStorage;
   final DefaultSessionService _defaultSessionService = DefaultSessionService();
   final ScenarioPauseController _pauseController = ScenarioPauseController();
 
@@ -248,14 +252,30 @@ class _PlayerScreenState extends State<PlayerScreen> {
       final selectedSetId = userSession.selectedSetId;
 
       // 1. Определяем владельца и ID набора.
-      if (account != null &&
-          (selectedSetId != null || !widget.useDefaultSession)) {
+      if (account != null && !widget.useDefaultSession) {
+        // Новый экран получил конкретный набор из Settings.
+        // Используем именно его, не прежний selectedSetId.
         _activeOwnerUserId = account.userId;
-        _activeSetId = selectedSetId ?? widget.setId;
+        _activeSetId = widget.setId;
+      } else if (account != null && selectedSetId != null) {
+        _activeOwnerUserId = account.userId;
+        _activeSetId = selectedSetId;
       } else {
         _activeOwnerUserId = null;
         _activeSetId = widget.setId;
       }
+
+      // Используем отдельное локальное хранилище для каждого набора.
+      _localSessionStorage = LocalSessionStorage(
+        ownerUserId: _activeOwnerUserId,
+        setId: _activeSetId,
+      );
+
+      // 2. Создаём хранилище именно для этого пользователя и набора.
+      _localSessionStorage = LocalSessionStorage(
+        ownerUserId: _activeOwnerUserId,
+        setId: _activeSetId,
+      );
 
       // 2. Проверяем локальную сессию только для её владельца.
       if (_activeOwnerUserId != null) {
@@ -311,6 +331,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _updateCurrentTexts();
         _isLoadingSet = false;
       });
+
+      // Новая сессия полностью загружена.
+      // Теперь можно переключить приложение со старого плеера.
+      if (widget.onSessionReady != null) {
+        try {
+          await widget.onSessionReady!.call();
+        } catch (callbackError) {
+          debugPrint('[PLAYER] Session switch callback failed: $callbackError');
+        }
+      }
     } catch (error) {
       if (!mounted) return;
 
@@ -600,6 +630,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
         }
       }
     });
+  }
+
+  /// Останавливает старую сессию перед переключением на новую.
+  Future<void> _stopForSessionReplacement() async {
+    _playbackGeneration++;
+
+    _pauseController.reset();
+
+    if (mounted) {
+      setState(() {
+        _isPlaying = false;
+      });
+    }
+
+    await _audioPlayerService.stop();
+
+    BluetoothAudioService.handler.updatePlayingState(false);
+
+    debugPrint('[PLAYER] Previous session stopped');
   }
 
   void _togglePlayback() {
@@ -1167,7 +1216,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               const SizedBox(height: 12),
               PlayerControls(
                 onSettings: () {
-                  unawaited(_audioPlayerService.stop());
+                  final previousPlayerRoute = ModalRoute.of(context);
 
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -1175,6 +1224,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         setName: _currentSetName,
                         setDescription: _currentSetDescription,
                         setId: _activeSetId,
+                        previousPlayerRoute: previousPlayerRoute,
+                        stopPreviousPlayer: _stopForSessionReplacement,
                       ),
                     ),
                   );
