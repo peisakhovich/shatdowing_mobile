@@ -1,4 +1,3 @@
-
 name: shadowing_mobile
 description: "Sound Language Studio — мобильный языковой плеер."
 publish_to: 'none'
@@ -14,6 +13,7 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   http: ^1.6.0
+  record: ^7.1.2
   just_audio: ^0.10.6
   path_provider: ^2.1.6
   shared_preferences: ^2.5.4
