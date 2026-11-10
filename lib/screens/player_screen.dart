@@ -1199,6 +1199,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _cancelVoiceTest();
     unawaited(_bluetoothCommandSubscription?.cancel() ?? Future<void>.value());
 
+    unawaited(_voiceTestService.dispose());
     unawaited(_audioPlayerService.dispose());
 
     super.dispose();
