@@ -20,6 +20,7 @@ import 'settings_screen.dart';
 import '../services/user_session.dart';
 import '../services/device_wake_lock.dart';
 import '../services/scenario_pause_controller.dart';
+import '../services/voice_test_service.dart';
 
 class PlayerScreen extends StatefulWidget {
   final int setId;
@@ -46,6 +47,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late LocalSessionStorage _localSessionStorage;
   final DefaultSessionService _defaultSessionService = DefaultSessionService();
   final ScenarioPauseController _pauseController = ScenarioPauseController();
+  final VoiceTestService _voiceTestService = VoiceTestService();
+
+  VoiceTestCancellationToken? _voiceTestCancellationToken;
 
   bool _isPaused = false;
 
@@ -118,6 +122,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
   double get _downloadProgress {
     if (_downloadTotal <= 0) return 0;
     return (_downloadCompleted / _downloadTotal).clamp(0.0, 1.0);
+  }
+
+  /// Отменяет текущую голосовую проверку, если она выполняется.
+  void _cancelVoiceTest() {
+    final token = _voiceTestCancellationToken;
+    _voiceTestCancellationToken = null;
+    token?.cancel();
   }
 
   void _pauseScenario() {
@@ -597,6 +608,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _selectScenario(String? key) {
     if (key == null || _config == null) return;
 
+    _cancelVoiceTest();
+
     final scenario = _config!.scenarios[key];
     if (scenario == null) return;
 
@@ -642,6 +655,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   /// Останавливает старую сессию перед переключением на новую.
   Future<void> _stopForSessionReplacement() async {
+    _cancelVoiceTest();
     _playbackGeneration++;
 
     _pauseController.reset();
@@ -662,6 +676,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _togglePlayback() {
     // Обычная остановка кнопкой Stop.
     if (_isPlaying) {
+      _cancelVoiceTest();
       setState(() {
         _playbackGeneration++;
         _isPlaying = false;
@@ -703,6 +718,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final targetIndex = index.clamp(0, _items.length - 1).toInt();
     final wasPlaying = _isPlaying;
 
+    _cancelVoiceTest();
     _playbackGeneration++;
 
     unawaited(_audioPlayerService.stop());
@@ -862,6 +878,92 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
+  /// Выполняет голосовую проверку текущей фразы.
+  /// Результат отображается в существующем поле перевода.
+  Future<void> _executeVoiceTest(int generation) async {
+    final item = _currentItem;
+
+    if (item == null) {
+      throw StateError('Учебный элемент ещё не загружен.');
+    }
+
+    final locale = item.phraseLocale;
+    if (locale == null || locale.trim().isEmpty) {
+      _stopVoiceTestWithMessage(
+        'Для этой фразы не задана языковая локаль.',
+        generation,
+      );
+      return;
+    }
+
+    final token = VoiceTestCancellationToken();
+    _voiceTestCancellationToken = token;
+
+    try {
+      final result = await _voiceTestService.execute(
+        request: VoiceTestRequest(
+          referenceText: item.phrase,
+          locale: locale,
+        ),
+        cancellationToken: token,
+      );
+
+      if (!mounted ||
+          _isPlaybackCancelled(generation) ||
+          token.isCancelled ||
+          !identical(_voiceTestCancellationToken, token)) {
+        return;
+      }
+
+      if (!result.success) {
+        _stopVoiceTestWithMessage(
+          result.errorMessage ?? 'Не удалось выполнить голосовую проверку.',
+          generation,
+        );
+        return;
+      }
+
+      final resultText = result.resultText?.trim();
+      if (resultText == null || resultText.isEmpty) {
+        _stopVoiceTestWithMessage(
+          'Голосовая проверка не вернула результат.',
+          generation,
+        );
+        return;
+      }
+
+      setState(() {
+        _translateText = resultText;
+        _showBottom = true;
+      });
+
+      await _executeWait(
+        Duration(milliseconds: _pauseBetweenSentencesMs),
+        generation,
+      );
+    } finally {
+      if (identical(_voiceTestCancellationToken, token)) {
+        _voiceTestCancellationToken = null;
+      }
+    }
+  }
+
+  /// Показывает сообщение и останавливает сценарий без авто-перехода.
+  void _stopVoiceTestWithMessage(String message, int generation) {
+    if (!mounted || generation != _playbackGeneration) return;
+
+    setState(() {
+      _translateText = message;
+      _showBottom = true;
+      _isPlaying = false;
+      _isPaused = false;
+      _playbackGeneration++;
+    });
+
+    _pauseController.reset();
+    BluetoothAudioService.handler.updatePlayingState(false);
+  }
+
   Future<void> _runCurrentScenario(int generation) async {
     final scenario = _selectedScenario;
     if (scenario == null) return;
@@ -922,6 +1024,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
         case 'PLAY':
           await _playScenarioAudio(action, generation);
+          break;
+
+        case 'VOICE_TEST':
+          await _executeVoiceTest(generation);
           break;
       }
     }
@@ -1090,6 +1196,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
+    _cancelVoiceTest();
     unawaited(_bluetoothCommandSubscription?.cancel() ?? Future<void>.value());
 
     unawaited(_audioPlayerService.dispose());
