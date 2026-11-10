@@ -15,6 +15,10 @@ void main() {
           'item_id': 1565,
           'phrase_text': 'Listen carefully to the words.',
           'translate_text': 'Słuchaj uważnie słów.',
+          'phrase_code': 'pl',
+          'phrase_locale': 'pl-PL',
+          'translate_code': 'ru',
+          'translate_locale': 'ru-RU',
           'pause_ms': 800,
           'speed': 1.0,
           'repeat_count': 1,
@@ -27,6 +31,10 @@ void main() {
 
     expect(learningSet.setDescription, 'Multi language shadowing session');
     expect(learningSet.items.first.translation, 'Słuchaj uważnie słów.');
+    expect(learningSet.items.first.phraseCode, 'pl');
+    expect(learningSet.items.first.phraseLocale, 'pl-PL');
+    expect(learningSet.items.first.translateCode, 'ru');
+    expect(learningSet.items.first.translateLocale, 'ru-RU');
     expect(learningSet.items.first.repeatCount, 1);
 
     expect(learningSet.setId, 69);
@@ -37,5 +45,33 @@ void main() {
     expect(learningSet.items.first.pauseBeforeTranslation, 800);
     expect(learningSet.items.first.speed, 1.0);
     expect(learningSet.currentIndex, 0);
+  });
+
+  test('LearningItem supports legacy JSON without language fields', () {
+    final json = {
+      'item_id': 1,
+      'phrase_text': 'Hello.',
+      'translate_text': 'Привет.',
+      'pause_ms': 500,
+      'speed': 1.0,
+      'repeat_count': 1,
+    };
+
+    final learningSet = LearningSet.fromJson({
+      'set': {
+        'set_id': 1,
+        'set_name': 'Legacy',
+        'set_description': '',
+        'user_nickname': '',
+      },
+      'items': [json],
+      'state': {'current_index': 0},
+    });
+
+    final item = learningSet.items.first;
+    expect(item.phraseCode, isNull);
+    expect(item.phraseLocale, isNull);
+    expect(item.translateCode, isNull);
+    expect(item.translateLocale, isNull);
   });
 }
