@@ -47,7 +47,7 @@ class ScenarioAction {
     final action = json['action'];
 
     if (action is! String ||
-        !{'SHOW', 'HIDE', 'PLAY', 'WAIT'}.contains(action)) {
+        !{'SHOW', 'HIDE', 'PLAY', 'WAIT', 'VOICE_TEST'}.contains(action)) {
       throw FormatException('Неизвестная команда сценария: $action');
     }
 
