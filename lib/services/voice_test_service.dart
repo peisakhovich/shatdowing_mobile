@@ -103,6 +103,7 @@ class VoiceTestService {
 
   final AudioRecorder _recorder = AudioRecorder();
 
+  Completer<void>? _captureFinished;
   bool _disposed = false;
 
   /// Запускает запись речи и автоматически завершает её после паузы.
@@ -125,6 +126,9 @@ class VoiceTestService {
         'Голосовая проверка отменена.',
       );
     }
+
+    final captureFinished = Completer<void>();
+    _captureFinished = captureFinished;
 
     String? recordingPath;
     var recordingStarted = false;
@@ -318,6 +322,12 @@ class VoiceTestService {
     } finally {
       monitorTimer?.cancel();
       await amplitudeSubscription?.cancel();
+      if (!captureFinished.isCompleted) {
+        captureFinished.complete();
+      }
+      if (identical(_captureFinished, captureFinished)) {
+        _captureFinished = null;
+      }
     }
   }
 
@@ -381,6 +391,12 @@ class VoiceTestService {
     if (_disposed) return;
 
     _disposed = true;
+
+    final activeCapture = _captureFinished;
+    if (activeCapture != null) {
+      await activeCapture.future;
+    }
+
     await _recorder.dispose();
   }
 }
