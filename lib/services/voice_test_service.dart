@@ -103,7 +103,11 @@ class VoiceTestService {
   // откалибровать под фактический уровень микрофона и окружающий шум.
   static const double _speechThresholdDb = -42.0;
 
+  final ApiClient _apiClient;
   final AudioRecorder _recorder = AudioRecorder();
+
+  VoiceTestService({ApiClient? apiClient})
+      : _apiClient = apiClient ?? ApiClient();
 
   Completer<void>? _captureFinished;
   bool _disposed = false;
