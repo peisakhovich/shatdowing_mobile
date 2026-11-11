@@ -211,13 +211,14 @@ class ApiClient {
     debugPrint('[API] Locale: $locale');
     debugPrint('[API] Reference length: ${referenceText.length}');
 
-    final streamedResponse = await request.send().timeout(
-      const Duration(seconds: 60),
-    );
-    final response = await http.Response.fromStream(streamedResponse);
+    final response = await http.Response.fromStream(
+      await request.send(),
+    ).timeout(const Duration(seconds: 60));
 
     debugPrint('[API] Voice assessment HTTP ${response.statusCode}');
-    debugPrint('[API] Voice assessment response bytes: ${response.bodyBytes.length}');
+    debugPrint(
+      '[API] Voice assessment response bytes: ${response.bodyBytes.length}',
+    );
     debugPrint('[API] ===== VOICE ASSESSMENT END =====');
 
     final dynamic decoded;
@@ -238,5 +239,4 @@ class ApiClient {
 
     return decoded;
   }
-
 }
