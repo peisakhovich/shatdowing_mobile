@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import 'api_client.dart';
+
 /// Результат одной голосовой проверки.
 class VoiceTestResult {
   final bool success;
@@ -344,6 +346,68 @@ class VoiceTestService {
     }
   }
 
+  String _formatAssessment(Map<String, dynamic> data) {
+    final assessment = data['assessment'] is Map
+        ? Map<String, dynamic>.from(data['assessment'] as Map)
+        : <String, dynamic>{};
+    final errors = data['errors'] is Map
+        ? Map<String, dynamic>.from(data['errors'] as Map)
+        : <String, dynamic>{};
+
+    String score(String key) {
+      final value = assessment[key];
+      return value is num ? value.round().toString() : '—';
+    }
+
+    final lines = <String>[
+      'Произношение: ${score('pronunciation_score')}/100',
+      'Точность: ${score('accuracy_score')}/100',
+      'Беглость: ${score('fluency_score')}/100',
+      'Полнота: ${score('completeness_score')}/100',
+    ];
+
+    final recognizedText = data['recognized_text']?.toString().trim();
+    if (recognizedText != null && recognizedText.isNotEmpty) {
+      lines.add('Распознано: $recognizedText');
+    }
+
+    lines.add(
+      'Ошибки: произношение — ${errors['mispronunciations'] ?? 0}, '
+      'пропуски — ${errors['omissions'] ?? 0}, '
+      'лишние слова — ${errors['insertions'] ?? 0}',
+    );
+
+    final rawWords = data['words'];
+    if (rawWords is List) {
+      final problemWords = <String>[];
+
+      for (final rawWord in rawWords) {
+        if (rawWord is! Map) continue;
+
+        final word = rawWord['word']?.toString().trim() ?? '';
+        final errorType = rawWord['error_type']?.toString() ?? 'None';
+        if (word.isEmpty || errorType == 'None' || errorType.isEmpty) {
+          continue;
+        }
+
+        final wordScore = rawWord['accuracy_score'];
+        final scoreText = wordScore is num
+            ? ' (${wordScore.round()}/100)'
+            : '';
+        problemWords.add('$word — $errorType$scoreText');
+
+        if (problemWords.length == 5) break;
+      }
+
+      if (problemWords.isNotEmpty) {
+        lines.add('Слова для внимания:');
+        lines.addAll(problemWords);
+      }
+    }
+
+    return lines.join('\n');
+  }
+
   Future<VoiceTestResult> execute({
     required VoiceTestRequest request,
     required VoiceTestCancellationToken cancellationToken,
@@ -375,16 +439,70 @@ class VoiceTestService {
       );
     }
 
-    // На этом этапе проверяем только работу микрофона и VAD.
-    // Отправка WAV на сервер и оценка Azure будут подключены следующим этапом.
-    await _deleteFile(capture.filePath);
+    final audioPath = capture.filePath!;
 
-    return VoiceTestResult.failure(
-      errorCode: 'api_not_connected',
-      errorMessage:
-          'Запись речи выполнена. Подключение сервера оценки произношения '
-          'будет добавлено следующим этапом.',
-    );
+    try {
+      if (cancellationToken.isCancelled) {
+        return VoiceTestResult.cancelled();
+      }
+
+      debugPrint('[VOICE TEST] Uploading WAV for locale ${request.locale}.');
+
+      final response = await _apiClient.assessVoice(
+        referenceText: request.referenceText,
+        locale: request.locale,
+        audioPath: audioPath,
+      );
+
+      if (cancellationToken.isCancelled) {
+        return VoiceTestResult.cancelled();
+      }
+
+      if (response['success'] != true) {
+        final error = response['error'] is Map
+            ? Map<String, dynamic>.from(response['error'] as Map)
+            : <String, dynamic>{};
+
+        return VoiceTestResult.failure(
+          errorCode: error['code']?.toString() ?? 'assessment_failed',
+          errorMessage: error['message']?.toString() ??
+              'Сервер не смог оценить произношение.',
+        );
+      }
+
+      final assessment = response['assessment'];
+      if (assessment is! Map) {
+        return VoiceTestResult.failure(
+          errorCode: 'invalid_assessment_response',
+          errorMessage: 'Сервер вернул результат без оценок произношения.',
+        );
+      }
+
+      return VoiceTestResult.completed(
+        _formatAssessment(response),
+      );
+    } on TimeoutException {
+      return VoiceTestResult.failure(
+        errorCode: 'request_timeout',
+        errorMessage: 'Сервер оценки произношения не ответил за 60 секунд.',
+      );
+    } on SocketException catch (error) {
+      debugPrint('[VOICE TEST] Network error: $error');
+      return VoiceTestResult.failure(
+        errorCode: 'network_error',
+        errorMessage: 'Нет соединения с сервером оценки произношения.',
+      );
+    } catch (error, stackTrace) {
+      debugPrint('[VOICE TEST] Assessment error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      return VoiceTestResult.failure(
+        errorCode: 'assessment_error',
+        errorMessage: 'Не удалось проверить произношение: $error',
+      );
+    } finally {
+      await _deleteFile(audioPath);
+    }
   }
 
   Future<void> dispose() async {
