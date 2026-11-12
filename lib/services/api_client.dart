@@ -198,10 +198,7 @@ class ApiClient {
   }) async {
     final uri = Uri.parse('$_baseUrl/voice-test');
     final request = http.MultipartRequest('POST', uri)
-      ..headers.addAll({
-        'X-API-Key': _apiKey,
-        'Accept': 'application/json',
-      })
+      ..headers.addAll({'X-API-Key': _apiKey, 'Accept': 'application/json'})
       ..fields['reference_text'] = referenceText
       ..fields['locale'] = locale
       ..files.add(await http.MultipartFile.fromPath('audio', audioPath));
@@ -211,9 +208,8 @@ class ApiClient {
     debugPrint('[API] Locale: $locale');
     debugPrint('[API] Reference length: ${referenceText.length}');
 
-    final response = await http.Response.fromStream(
-      await request.send(),
-    ).timeout(const Duration(seconds: 60));
+    final response = await http.Response.fromStream(await request.send())
+        .timeout(const Duration(seconds: 60));
 
     debugPrint('[API] Voice assessment HTTP ${response.statusCode}');
     debugPrint(

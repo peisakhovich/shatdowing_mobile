@@ -22,10 +22,7 @@ class VoiceTestResult {
   });
 
   factory VoiceTestResult.completed(String resultText) {
-    return VoiceTestResult(
-      success: true,
-      resultText: resultText,
-    );
+    return VoiceTestResult(success: true, resultText: resultText);
   }
 
   factory VoiceTestResult.failure({
@@ -52,10 +49,7 @@ class VoiceTestRequest {
   final String referenceText;
   final String locale;
 
-  const VoiceTestRequest({
-    required this.referenceText,
-    required this.locale,
-  });
+  const VoiceTestRequest({required this.referenceText, required this.locale});
 }
 
 /// Токен отмены одной операции.
@@ -79,11 +73,11 @@ class _SpeechCaptureResult {
   final String? errorMessage;
 
   const _SpeechCaptureResult.success(this.filePath)
-      : errorCode = null,
-        errorMessage = null;
+    : errorCode = null,
+      errorMessage = null;
 
   const _SpeechCaptureResult.failure(this.errorCode, this.errorMessage)
-      : filePath = null;
+    : filePath = null;
 
   bool get success => filePath != null;
 }
@@ -107,7 +101,7 @@ class VoiceTestService {
   final AudioRecorder _recorder = AudioRecorder();
 
   VoiceTestService({ApiClient? apiClient})
-      : _apiClient = apiClient ?? ApiClient();
+    : _apiClient = apiClient ?? ApiClient();
 
   Completer<void>? _captureFinished;
   bool _disposed = false;
@@ -158,8 +152,7 @@ class VoiceTestService {
         );
       }
 
-      final supportsWav =
-          await _recorder.isEncoderSupported(AudioEncoder.wav);
+      final supportsWav = await _recorder.isEncoderSupported(AudioEncoder.wav);
 
       if (!supportsWav) {
         return const _SpeechCaptureResult.failure(
@@ -180,9 +173,7 @@ class VoiceTestService {
         autoGain: false,
         echoCancel: true,
         noiseSuppress: true,
-        androidConfig: AndroidRecordConfig(
-          manageBluetooth: true,
-        ),
+        androidConfig: AndroidRecordConfig(manageBluetooth: true),
       );
 
       await _recorder.start(config, path: recordingPath);
@@ -198,26 +189,26 @@ class VoiceTestService {
       amplitudeSubscription = _recorder
           .onAmplitudeChanged(_amplitudeInterval)
           .listen(
-        (amplitude) {
-          final now = DateTime.now();
+            (amplitude) {
+              final now = DateTime.now();
 
-          if (amplitude.current >= _speechThresholdDb) {
-            speechFrameCount++;
-            lastSpeechAt = now;
+              if (amplitude.current >= _speechThresholdDb) {
+                speechFrameCount++;
+                lastSpeechAt = now;
 
-            if (!confirmedSpeech &&
-                speechFrameCount * _amplitudeInterval.inMilliseconds >=
-                    _minimumSpeechDuration.inMilliseconds) {
-              confirmedSpeech = true;
-            }
-          }
-        },
-        onError: (Object error) {
-          if (!captureCompleter.isCompleted) {
-            captureCompleter.completeError(error);
-          }
-        },
-      );
+                if (!confirmedSpeech &&
+                    speechFrameCount * _amplitudeInterval.inMilliseconds >=
+                        _minimumSpeechDuration.inMilliseconds) {
+                  confirmedSpeech = true;
+                }
+              }
+            },
+            onError: (Object error) {
+              if (!captureCompleter.isCompleted) {
+                captureCompleter.completeError(error);
+              }
+            },
+          );
 
       monitorTimer = Timer.periodic(_amplitudeInterval, (_) {
         if (captureCompleter.isCompleted) return;
@@ -395,9 +386,7 @@ class VoiceTestService {
         }
 
         final wordScore = rawWord['accuracy_score'];
-        final scoreText = wordScore is num
-            ? ' (${wordScore.round()}/100)'
-            : '';
+        final scoreText = wordScore is num ? ' (${wordScore.round()}/100)' : '';
         problemWords.add('$word — $errorType$scoreText');
 
         if (problemWords.length == 5) break;
@@ -420,17 +409,14 @@ class VoiceTestService {
       return VoiceTestResult.cancelled();
     }
 
-    if (request.referenceText.trim().isEmpty ||
-        request.locale.trim().isEmpty) {
+    if (request.referenceText.trim().isEmpty || request.locale.trim().isEmpty) {
       return VoiceTestResult.failure(
         errorCode: 'invalid_request',
         errorMessage: 'Не задан текст фразы или язык.',
       );
     }
 
-    final capture = await _captureSpeech(
-      cancellationToken: cancellationToken,
-    );
+    final capture = await _captureSpeech(cancellationToken: cancellationToken);
 
     if (!capture.success) {
       if (capture.errorCode == 'cancelled') {
@@ -469,7 +455,8 @@ class VoiceTestService {
 
         return VoiceTestResult.failure(
           errorCode: error['code']?.toString() ?? 'assessment_failed',
-          errorMessage: error['message']?.toString() ??
+          errorMessage:
+              error['message']?.toString() ??
               'Сервер не смог оценить произношение.',
         );
       }
@@ -482,9 +469,7 @@ class VoiceTestService {
         );
       }
 
-      return VoiceTestResult.completed(
-        _formatAssessment(response),
-      );
+      return VoiceTestResult.completed(_formatAssessment(response));
     } on TimeoutException {
       return VoiceTestResult.failure(
         errorCode: 'request_timeout',
