@@ -89,6 +89,9 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
         '${(seconds % 60).toString().padLeft(2, '0')}.$tenths';
   }
 
+  String _scoreText(double? value) =>
+      value == null ? '—' : '${value.round()}%';
+
   Widget _score(String label, double? value) {
     return SizedBox(
       width: 130,
@@ -96,8 +99,10 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
           child: Column(children: [
-            Text(value == null ? '—' : value.round().toString(),
-              style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              _scoreText(value),
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             Text(label, textAlign: TextAlign.center),
           ]),
         ),
@@ -106,14 +111,153 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   }
 
   Widget _legend(Color color, String label) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(width: 12, height: 12,
-        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
-      const SizedBox(width: 5),
-      Text(label, style: Theme.of(context).textTheme.bodySmall),
-    ],
-  );
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      );
+
+  Color _statusColor(VoiceWordStatus status) => switch (status) {
+        VoiceWordStatus.correct => Colors.green.shade700,
+        VoiceWordStatus.mispronunciation => Colors.deepOrange.shade700,
+        VoiceWordStatus.omission => Colors.red.shade700,
+      };
+
+  String _statusLabel(VoiceWordStatus status) => switch (status) {
+        VoiceWordStatus.correct => 'Правильно',
+        VoiceWordStatus.mispronunciation => 'Ошибка произношения',
+        VoiceWordStatus.omission => 'Пропущено',
+      };
+
+  Widget _wordStatistics(VoiceTestAssessment assessment) {
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+        title: const Text('Статистика по словам'),
+        subtitle: Text(
+          'Правильно: ${assessment.correctCount} · '
+          'Ошибки: ${assessment.mispronunciationCount} · '
+          'Пропуски: ${assessment.omissionCount}',
+        ),
+        children: [
+          const Divider(height: 1),
+          const SizedBox(height: 6),
+          for (var index = 0; index < assessment.referenceWords.length; index++)
+            _wordStatisticsRow(index + 1, assessment.referenceWords[index]),
+          if (assessment.insertions.isNotEmpty) ...[
+            const Divider(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Добавленные слова (${assessment.insertions.length})',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            const SizedBox(height: 6),
+            for (final insertion in assessment.insertions)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: [
+                    const Icon(Icons.add_circle_outline,
+                        color: Colors.amber, size: 19),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(insertion.text)),
+                    if (insertion.accuracy != null)
+                      Text('Точность: ${_scoreText(insertion.accuracy)}'),
+                  ],
+                ),
+              ),
+          ],
+          if (assessment.referenceWords.every((word) => word.accuracy == null))
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'Сервер не вернул индивидуальные оценки для слов. '
+                'Цветовые статусы рассчитаны по сопоставлению текста.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _wordStatisticsRow(int number, VoiceWordResult word) {
+    final color = _statusColor(word.status);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 25,
+            child: Text(
+              '$number.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(word.text, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  _statusLabel(word.status),
+                  style: TextStyle(color: color, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (word.accuracy != null)
+            SizedBox(
+              width: 104,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    _scoreText(word.accuracy),
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  LinearProgressIndicator(
+                    value: (word.accuracy!.clamp(0, 100)) / 100,
+                    minHeight: 5,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text('Точность слова', style: TextStyle(fontSize: 9)),
+                ],
+              ),
+            )
+          else
+            const SizedBox(
+              width: 104,
+              child: Text(
+                'Нет оценки',
+                textAlign: TextAlign.end,
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -134,13 +278,18 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 18, 12, 8),
                 child: Row(children: [
-                  const Expanded(child: Text('Проверка произношения',
-                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600))),
-                  if (!busy) IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                    tooltip: 'Закрыть',
+                  const Expanded(
+                    child: Text(
+                      'Проверка произношения',
+                      style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
+                    ),
                   ),
+                  if (!busy)
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                      tooltip: 'Закрыть',
+                    ),
                 ]),
               ),
               const Divider(height: 1),
@@ -152,14 +301,21 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                     children: [
                       if (_phase != _DialogPhase.result) ...[
                         Text('Произнесите фразу:',
-                          style: Theme.of(context).textTheme.labelLarge),
+                            style: Theme.of(context).textTheme.labelLarge),
                         const SizedBox(height: 8),
-                        Text(widget.request.referenceText,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(height: 1.45)),
+                        Text(
+                          widget.request.referenceText,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(height: 1.45),
+                        ),
                         const SizedBox(height: 20),
                       ],
                       if (_phase == _DialogPhase.ready) ...[
-                        const Text('Нажмите «Начать запись» и произнесите фразу естественно.'),
+                        const Text(
+                          'Нажмите «Начать запись» и произнесите фразу естественно.',
+                        ),
                         const SizedBox(height: 16),
                         FilledButton.icon(
                           onPressed: _startRecording,
@@ -170,30 +326,39 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                       if (_phase == _DialogPhase.recording) ...[
                         const Icon(Icons.mic, size: 42, color: Colors.red),
                         const SizedBox(height: 8),
-                        Text(_formatDuration(_recordingDuration),
+                        Text(
+                          _formatDuration(_recordingDuration),
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineMedium),
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
                         const SizedBox(height: 8),
                         const LinearProgressIndicator(),
                         const SizedBox(height: 12),
-                        const Text('Идёт запись. Она завершится после паузы или по кнопке.',
-                          textAlign: TextAlign.center),
+                        const Text(
+                          'Идёт запись. Она завершится после паузы или по кнопке.',
+                          textAlign: TextAlign.center,
+                        ),
                         const SizedBox(height: 16),
                         FilledButton.icon(
                           onPressed: _stopRecording,
                           icon: const Icon(Icons.stop),
                           label: const Text('Завершить запись'),
-                          style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.red,
+                          ),
                         ),
                       ],
                       if (_phase == _DialogPhase.processing) ...[
                         const Center(child: CircularProgressIndicator()),
                         const SizedBox(height: 14),
-                        const Text('Отправка записи и оценка произношения…',
-                          textAlign: TextAlign.center),
+                        const Text(
+                          'Отправка записи и оценка произношения…',
+                          textAlign: TextAlign.center,
+                        ),
                       ],
                       if (_phase == _DialogPhase.result && _assessment != null) ...[
-                        Text('Результаты', style: Theme.of(context).textTheme.titleLarge),
+                        Text('Результаты',
+                            style: Theme.of(context).textTheme.titleLarge),
                         const SizedBox(height: 8),
                         Wrap(
                           alignment: WrapAlignment.center,
@@ -205,36 +370,51 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Text('Эталонная фраза', style: Theme.of(context).textTheme.titleMedium),
+                        Text('Эталонная фраза',
+                            style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 6),
                         VoiceReferenceText(words: _assessment!.referenceWords),
                         const SizedBox(height: 8),
                         Wrap(spacing: 12, runSpacing: 6, children: [
                           _legend(Colors.green, 'Правильно'),
-                          _legend(Colors.deepOrange, 'Произношение'),
+                          _legend(Colors.deepOrange, 'Ошибка произношения'),
                           _legend(Colors.red, 'Пропуск'),
                         ]),
+                        _wordStatistics(_assessment!),
                         if (_assessment!.recognizedText.isNotEmpty) ...[
                           const SizedBox(height: 16),
-                          Text('Распознано', style: Theme.of(context).textTheme.titleMedium),
+                          Text('Распознано',
+                              style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 5),
                           Text(_assessment!.recognizedText),
                         ],
                         if (_assessment!.insertions.isNotEmpty) ...[
                           const SizedBox(height: 12),
-                          Text('Дополнительно распознано', style: Theme.of(context).textTheme.titleMedium),
+                          Text('Лишние слова',
+                              style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 4),
                           const Text('Этих слов нет в эталонной фразе.'),
                           const SizedBox(height: 5),
-                          Wrap(spacing: 6, children: _assessment!.insertions.map((word) =>
-                            Chip(label: Text(word), backgroundColor: Colors.amber.shade100)).toList()),
+                          Wrap(
+                            spacing: 6,
+                            children: _assessment!.insertions
+                                .map((item) => Chip(
+                                      label: Text(item.text),
+                                      backgroundColor: Colors.amber.shade100,
+                                    ))
+                                .toList(),
+                          ),
                         ],
                       ],
                       if (_phase == _DialogPhase.error) ...[
-                        const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                        const Icon(Icons.error_outline,
+                            color: Colors.red, size: 40),
                         const SizedBox(height: 8),
-                        Text(_result?.errorMessage ?? 'Не удалось выполнить проверку.',
-                          textAlign: TextAlign.center),
+                        Text(
+                          _result?.errorMessage ??
+                              'Не удалось выполнить проверку.',
+                          textAlign: TextAlign.center,
+                        ),
                         const SizedBox(height: 16),
                         OutlinedButton.icon(
                           onPressed: _startRecording,
@@ -251,16 +431,20 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
                   child: Row(children: [
                     if (_phase == _DialogPhase.result)
-                      Expanded(child: OutlinedButton.icon(
-                        onPressed: _startRecording,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Повторить'),
-                      )),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _startRecording,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Повторить'),
+                        ),
+                      ),
                     if (_phase == _DialogPhase.result) const SizedBox(width: 10),
-                    Expanded(child: FilledButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Закрыть'),
-                    )),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Закрыть'),
+                      ),
+                    ),
                   ]),
                 ),
             ],
