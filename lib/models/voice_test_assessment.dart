@@ -29,7 +29,7 @@ class VoiceTestAssessment {
     final rawAssessment = json['assessment'];
     final assessment = rawAssessment is Map
         ? Map<String, dynamic>.from(rawAssessment) : <String, dynamic>{};
-    final reference = referenceText.trim().split(RegExp(r'\\s+'))
+    final reference = referenceText.trim().split(RegExp(r'\s+'))
         .where((word) => word.isNotEmpty).toList();
     final statuses = List<VoiceWordStatus?>.filled(reference.length, null);
     final accuracies = List<double?>.filled(reference.length, null);
@@ -111,7 +111,42 @@ class VoiceTestAssessment {
   }
 
   static String _normalize(String value) => value.toLowerCase().replaceAll(
-    RegExp(r'^[^\\p{L}\\p{N}]+|[^\\p{L}\\p{N}]+$', unicode: true), '');
+    RegExp(r'^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+, '');
+
+  static double? _num(dynamic value) =>
+      value is num ? value.toDouble() : null;
+}
+
+class VoiceReferenceText extends StatelessWidget {
+  final List<VoiceWordResult> words;
+  const VoiceReferenceText({super.key, required this.words});
+
+  @override
+  Widget build(BuildContext context) {
+    final spans = <InlineSpan>[];
+    for (var i = 0; i < words.length; i++) {
+      final word = words[i];
+      final color = switch (word.status) {
+        VoiceWordStatus.correct => Colors.green.shade700,
+        VoiceWordStatus.mispronunciation => Colors.deepOrange.shade700,
+        VoiceWordStatus.omission => Colors.red.shade700,
+      };
+      final background = switch (word.status) {
+        VoiceWordStatus.correct => Colors.green.withValues(alpha: 0.12),
+        VoiceWordStatus.mispronunciation => Colors.deepOrange.withValues(alpha: 0.14),
+        VoiceWordStatus.omission => Colors.red.withValues(alpha: 0.12),
+      };
+      spans.add(TextSpan(
+        text: '${word.text}${i == words.length - 1 ? '' : ' '}',
+        style: TextStyle(color: color, backgroundColor: background,
+          fontWeight: FontWeight.w600),
+      ));
+    }
+    return Text.rich(TextSpan(children: spans),
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(height: 1.8));
+  }
+}
+, unicode: true), '');
 
   static double? _num(dynamic value) =>
       value is num ? value.toDouble() : null;
