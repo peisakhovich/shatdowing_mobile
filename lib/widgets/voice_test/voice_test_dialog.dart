@@ -236,7 +236,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                   ),
                   const SizedBox(height: 3),
                   LinearProgressIndicator(
-                    value: (word.accuracy!.clamp(0, 100)) / 100,
+                    value: word.accuracy!.clamp(0.0, 100.0).toDouble() / 100.0,
                     minHeight: 5,
                     borderRadius: BorderRadius.circular(4),
                   ),
