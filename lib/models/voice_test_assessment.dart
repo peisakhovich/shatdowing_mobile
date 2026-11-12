@@ -274,12 +274,12 @@ class VoiceTestAssessment {
 
   static List<String> _tokenize(String text) => text
       .trim()
-      .split(RegExp(r'\\s+'))
+      .split(RegExp(r'\s+'))
       .where((word) => word.isNotEmpty)
       .toList();
 
   static String _normalize(String value) => value.toLowerCase().replaceAll(
-        RegExp(r'^[.,!?;:()\\[\\]{}"„”«»…—–-]+|[.,!?;:()\\[\\]{}"„”«»…—–-]+$'),
+        RegExp(r'^[.,!?;:()\[\]{}"„”«»…—–-]+|[.,!?;:()\[\]{}"„”«»…—–-]+$'),
         '',
       );
 
