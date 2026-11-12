@@ -10,19 +10,22 @@ import 'api_client.dart';
 /// Результат одной голосовой проверки.
 class VoiceTestResult {
   final bool success;
-  final String? resultText;
+  final Map<String, dynamic>? assessmentData;
   final String? errorCode;
   final String? errorMessage;
 
   const VoiceTestResult({
     required this.success,
-    this.resultText,
+    this.assessmentData,
     this.errorCode,
     this.errorMessage,
   });
 
-  factory VoiceTestResult.completed(String resultText) {
-    return VoiceTestResult(success: true, resultText: resultText);
+  factory VoiceTestResult.completed(Map<String, dynamic> assessmentData) {
+    return VoiceTestResult(
+      success: true,
+      assessmentData: assessmentData,
+    );
   }
 
   factory VoiceTestResult.failure({
@@ -104,7 +107,16 @@ class VoiceTestService {
     : _apiClient = apiClient ?? ApiClient();
 
   Completer<void>? _captureFinished;
+  Completer<void>? _activeCaptureStop;
   bool _disposed = false;
+
+  /// Завершает текущую запись вручную. После остановки WAV отправляется на API.
+  void stopRecording() {
+    final stop = _activeCaptureStop;
+    if (stop != null && !stop.isCompleted) {
+      stop.complete();
+    }
+  }
 
   /// Запускает запись речи и автоматически завершает её после паузы.
   ///
@@ -112,6 +124,7 @@ class VoiceTestService {
   /// удаляется. Успешная запись сохраняется для последующей отправки на API.
   Future<_SpeechCaptureResult> _captureSpeech({
     required VoiceTestCancellationToken cancellationToken,
+    required ValueChanged<Duration>? onRecordingDurationChanged,
   }) async {
     if (_disposed) {
       return const _SpeechCaptureResult.failure(
@@ -185,6 +198,9 @@ class VoiceTestService {
       var confirmedSpeech = false;
 
       final captureCompleter = Completer<String?>();
+      final manualStop = Completer<void>();
+      _activeCaptureStop = manualStop;
+      var lastDurationReport = -1;
 
       amplitudeSubscription = _recorder
           .onAmplitudeChanged(_amplitudeInterval)
@@ -220,6 +236,16 @@ class VoiceTestService {
 
         final now = DateTime.now();
         final elapsed = now.difference(captureStartedAt);
+        if (elapsed.inMilliseconds ~/ 250 != lastDurationReport) {
+          lastDurationReport = elapsed.inMilliseconds ~/ 250;
+          onRecordingDurationChanged?.call(elapsed);
+        }
+        if (manualStop.isCompleted) {
+          captureCompleter.complete(
+            confirmedSpeech ? 'completed' : 'no_speech',
+          );
+          return;
+        }
 
         if (!confirmedSpeech && elapsed >= _speechStartTimeout) {
           captureCompleter.complete('no_speech');
@@ -325,6 +351,7 @@ class VoiceTestService {
       if (identical(_captureFinished, captureFinished)) {
         _captureFinished = null;
       }
+      _activeCaptureStop = null;
     }
   }
 
@@ -341,69 +368,11 @@ class VoiceTestService {
     }
   }
 
-  String _formatAssessment(Map<String, dynamic> data) {
-    final assessment = data['assessment'] is Map
-        ? Map<String, dynamic>.from(data['assessment'] as Map)
-        : <String, dynamic>{};
-    final errors = data['errors'] is Map
-        ? Map<String, dynamic>.from(data['errors'] as Map)
-        : <String, dynamic>{};
-
-    String score(String key) {
-      final value = assessment[key];
-      return value is num ? value.round().toString() : '—';
-    }
-
-    final lines = <String>[
-      'Произношение: ${score('pronunciation_score')}/100',
-      'Точность: ${score('accuracy_score')}/100',
-      'Беглость: ${score('fluency_score')}/100',
-      'Полнота: ${score('completeness_score')}/100',
-    ];
-
-    final recognizedText = data['recognized_text']?.toString().trim();
-    if (recognizedText != null && recognizedText.isNotEmpty) {
-      lines.add('Распознано: $recognizedText');
-    }
-
-    lines.add(
-      'Ошибки: произношение — ${errors['mispronunciations'] ?? 0}, '
-      'пропуски — ${errors['omissions'] ?? 0}, '
-      'лишние слова — ${errors['insertions'] ?? 0}',
-    );
-
-    final rawWords = data['words'];
-    if (rawWords is List) {
-      final problemWords = <String>[];
-
-      for (final rawWord in rawWords) {
-        if (rawWord is! Map) continue;
-
-        final word = rawWord['word']?.toString().trim() ?? '';
-        final errorType = rawWord['error_type']?.toString() ?? 'None';
-        if (word.isEmpty || errorType == 'None' || errorType.isEmpty) {
-          continue;
-        }
-
-        final wordScore = rawWord['accuracy_score'];
-        final scoreText = wordScore is num ? ' (${wordScore.round()}/100)' : '';
-        problemWords.add('$word — $errorType$scoreText');
-
-        if (problemWords.length == 5) break;
-      }
-
-      if (problemWords.isNotEmpty) {
-        lines.add('Слова для внимания:');
-        lines.addAll(problemWords);
-      }
-    }
-
-    return lines.join('\n');
-  }
-
   Future<VoiceTestResult> execute({
     required VoiceTestRequest request,
     required VoiceTestCancellationToken cancellationToken,
+    ValueChanged<Duration>? onRecordingDurationChanged,
+    VoidCallback? onProcessingStarted,
   }) async {
     if (cancellationToken.isCancelled) {
       return VoiceTestResult.cancelled();
@@ -416,7 +385,10 @@ class VoiceTestService {
       );
     }
 
-    final capture = await _captureSpeech(cancellationToken: cancellationToken);
+    final capture = await _captureSpeech(
+      cancellationToken: cancellationToken,
+      onRecordingDurationChanged: onRecordingDurationChanged,
+    );
 
     if (!capture.success) {
       if (capture.errorCode == 'cancelled') {
@@ -436,6 +408,7 @@ class VoiceTestService {
         return VoiceTestResult.cancelled();
       }
 
+      onProcessingStarted?.call();
       debugPrint('[VOICE TEST] Uploading WAV for locale ${request.locale}.');
 
       final response = await _apiClient.assessVoice(
@@ -469,7 +442,7 @@ class VoiceTestService {
         );
       }
 
-      return VoiceTestResult.completed(_formatAssessment(response));
+      return VoiceTestResult.completed(response);
     } on TimeoutException {
       return VoiceTestResult.failure(
         errorCode: 'request_timeout',
