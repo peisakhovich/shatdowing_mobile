@@ -39,8 +39,11 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   }
 
   Future<void> _startRecording() async {
-    if (_starting || _phase == _DialogPhase.recording ||
-        _phase == _DialogPhase.processing) return;
+    if (_starting ||
+        _phase == _DialogPhase.recording ||
+        _phase == _DialogPhase.processing) {
+      return;
+    }
 
     setState(() {
       _starting = true;
