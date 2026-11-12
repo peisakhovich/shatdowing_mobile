@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 enum VoiceWordStatus { correct, mispronunciation, omission }
 
+enum _AlignmentOperation { match, substitution, omission, insertion }
+
 class VoiceWordResult {
   final String text;
   final VoiceWordStatus status;
@@ -42,19 +44,31 @@ class VoiceTestAssessment {
         ? Map<String, dynamic>.from(rawAssessment)
         : <String, dynamic>{};
 
-    final reference = referenceText
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((word) => word.isNotEmpty)
-        .toList();
+    final reference = _tokenize(referenceText);
+    final recognizedText = json['recognized_text']?.toString().trim() ?? '';
+    final recognized = _tokenize(recognizedText);
 
     final statuses = List<VoiceWordStatus?>.filled(reference.length, null);
     final accuracies = List<double?>.filled(reference.length, null);
     final insertions = <String>[];
-    var cursor = 0;
-    final rawWords = json['words'];
 
+    // Main comparison is based on the actual recognized transcript.
+    // This catches added words even when Azure does not label them
+    // as "Insertion" in its word-level assessment.
+    _alignWords(
+      reference: reference,
+      recognized: recognized,
+      statuses: statuses,
+      insertions: insertions,
+    );
+
+    // Azure word-level details are supplementary. In particular, Azure can
+    // restore an omitted expected word in recognized_text, while still
+    // reporting that omission in the "words" array.
+    final rawWords = json['words'];
     if (rawWords is List) {
+      var searchFrom = 0;
+
       for (final raw in rawWords) {
         if (raw is! Map) continue;
 
@@ -66,60 +80,23 @@ class VoiceTestAssessment {
             ? (raw['accuracy_score'] as num).toDouble()
             : null;
 
-        if (type == 'insertion') {
-          insertions.add(word);
-          continue;
-        }
-
-        if (cursor >= reference.length) {
-          insertions.add(word);
-          continue;
-        }
-
-        if (type == 'omission') {
-          final match = _findReferenceWord(reference, word, cursor);
-          final target = match ?? cursor;
-
-          while (cursor < target) {
-            statuses[cursor] = VoiceWordStatus.omission;
-            cursor++;
+        if (type == 'omission' || type == 'mispronunciation') {
+          final target = _findReferenceWord(reference, word, searchFrom);
+          if (target != null) {
+            statuses[target] = type == 'omission'
+                ? VoiceWordStatus.omission
+                : VoiceWordStatus.mispronunciation;
+            accuracies[target] = score;
+            searchFrom = target + 1;
           }
-
-          statuses[target] = VoiceWordStatus.omission;
-          cursor = target + 1;
-          continue;
         }
 
-        final match = _findReferenceWord(reference, word, cursor);
-
-        if (match == null) {
-          if (type == 'mispronunciation') {
-            statuses[cursor] = VoiceWordStatus.mispronunciation;
-            accuracies[cursor] = score;
-            cursor++;
-          } else {
-            insertions.add(word);
-          }
-          continue;
+        // Keep Azure's explicit insertion only if the transcript alignment
+        // did not already report the same word.
+        if (type == 'insertion' &&
+            !_containsNormalized(insertions, word)) {
+          insertions.add(word);
         }
-
-        while (cursor < match) {
-          statuses[cursor] = VoiceWordStatus.omission;
-          cursor++;
-        }
-
-        statuses[match] = type == 'mispronunciation'
-            ? VoiceWordStatus.mispronunciation
-            : VoiceWordStatus.correct;
-        accuracies[match] = score;
-        cursor = match + 1;
-      }
-    }
-
-    if (rawWords is List && rawWords.isNotEmpty) {
-      while (cursor < reference.length) {
-        statuses[cursor] ??= VoiceWordStatus.omission;
-        cursor++;
       }
     }
 
@@ -128,7 +105,7 @@ class VoiceTestAssessment {
       accuracy: _asDouble(assessment['accuracy_score']),
       fluency: _asDouble(assessment['fluency_score']),
       completeness: _asDouble(assessment['completeness_score']),
-      recognizedText: json['recognized_text']?.toString().trim() ?? '',
+      recognizedText: recognizedText,
       referenceWords: List.generate(
         reference.length,
         (index) => VoiceWordResult(
@@ -139,6 +116,95 @@ class VoiceTestAssessment {
       ),
       insertions: insertions,
     );
+  }
+
+  static void _alignWords({
+    required List<String> reference,
+    required List<String> recognized,
+    required List<VoiceWordStatus?> statuses,
+    required List<String> insertions,
+  }) {
+    final n = reference.length;
+    final m = recognized.length;
+    final costs = List.generate(
+      n + 1,
+      (_) => List<int>.filled(m + 1, 0),
+    );
+
+    for (var i = n; i >= 0; i--) {
+      for (var j = m; j >= 0; j--) {
+        if (i == n && j == m) continue;
+        if (i == n) {
+          costs[i][j] = m - j;
+        } else if (j == m) {
+          costs[i][j] = n - i;
+        } else {
+          final substitutionCost =
+              _normalize(reference[i]) == _normalize(recognized[j]) ? 0 : 1;
+          final substitution = substitutionCost + costs[i + 1][j + 1];
+          final omission = 1 + costs[i + 1][j];
+          final insertion = 1 + costs[i][j + 1];
+
+          costs[i][j] = [
+            substitution,
+            omission,
+            insertion,
+          ].reduce((a, b) => a < b ? a : b);
+        }
+      }
+    }
+
+    var i = 0;
+    var j = 0;
+
+    while (i < n || j < m) {
+      if (i < n &&
+          j < m &&
+          _normalize(reference[i]) == _normalize(recognized[j]) &&
+          costs[i][j] == costs[i + 1][j + 1]) {
+        statuses[i] = VoiceWordStatus.correct;
+        i++;
+        j++;
+        continue;
+      }
+
+      // Prefer an insertion when it gives an optimal alignment. This prevents
+      // one extra spoken word from shifting the comparison of later words.
+      if (j < m && costs[i][j] == 1 + costs[i][j + 1]) {
+        insertions.add(recognized[j]);
+        j++;
+        continue;
+      }
+
+      if (i < n && costs[i][j] == 1 + costs[i + 1][j]) {
+        statuses[i] = VoiceWordStatus.omission;
+        i++;
+        continue;
+      }
+
+      if (i < n && j < m) {
+        statuses[i] = VoiceWordStatus.mispronunciation;
+        i++;
+        j++;
+        continue;
+      }
+
+      if (i < n) {
+        statuses[i] = VoiceWordStatus.omission;
+        i++;
+      } else if (j < m) {
+        insertions.add(recognized[j]);
+        j++;
+      }
+    }
+  }
+
+  static List<String> _tokenize(String text) {
+    return text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .toList();
   }
 
   static int? _findReferenceWord(
@@ -156,6 +222,11 @@ class VoiceTestAssessment {
     }
 
     return null;
+  }
+
+  static bool _containsNormalized(List<String> words, String candidate) {
+    final normalized = _normalize(candidate);
+    return words.any((word) => _normalize(word) == normalized);
   }
 
   static String _normalize(String value) {
