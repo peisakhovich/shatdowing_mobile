@@ -68,7 +68,13 @@ class VoiceTestAssessment {
 
         final match = _find(reference, word, cursor);
         if (match == null) {
-          insertions.add(word);
+          if (type == 'mispronunciation') {
+            statuses[cursor] = VoiceWordStatus.mispronunciation;
+            accuracies[cursor] = score;
+            cursor++;
+          } else {
+            insertions.add(word);
+          }
           continue;
         }
         while (cursor < match) {
