@@ -15,6 +15,7 @@ import '../services/player_config_service.dart';
 import '../widgets/player/adaptive_text_window.dart';
 import '../widgets/player/pause_settings.dart';
 import '../widgets/player/player_controls.dart';
+import '../widgets/voice_test/voice_test_dialog.dart';
 import '../services/default_session_service.dart';
 import 'settings_screen.dart';
 import '../services/user_session.dart';
@@ -878,8 +879,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
-  /// Выполняет голосовую проверку текущей фразы.
-  /// Результат отображается в существующем поле перевода.
+  /// Открывает отдельное модальное окно голосовой проверки.
+  /// После закрытия диалога сценарий продолжает выполнение следующих действий.
   Future<void> _executeVoiceTest(int generation) async {
     final item = _currentItem;
 
@@ -889,10 +890,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     final locale = item.phraseLocale;
     if (locale == null || locale.trim().isEmpty) {
-      _stopVoiceTestWithMessage(
-        'Для этой фразы не задана языковая локаль.',
-        generation,
-      );
+      if (mounted && generation == _playbackGeneration) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Для этой фразы не задана языковая локаль.'),
+          ),
+        );
+      }
       return;
     }
 
@@ -900,68 +904,33 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _voiceTestCancellationToken = token;
 
     try {
-      final result = await _voiceTestService.execute(
-        request: VoiceTestRequest(
-          referenceText: item.phrase,
-          locale: locale,
+      // Предыдущая команда PLAY в сценарии уже завершилась.
+      // Дополнительно убеждаемся, что аудио не продолжает звучать в диалоге.
+      await _audioPlayerService.pause();
+
+      if (!mounted || _isPlaybackCancelled(generation)) return;
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => VoiceTestDialog(
+          service: _voiceTestService,
+          request: VoiceTestRequest(
+            referenceText: item.phrase,
+            locale: locale,
+          ),
+          cancellationToken: token,
         ),
-        cancellationToken: token,
       );
 
-      if (!mounted ||
-          _isPlaybackCancelled(generation) ||
-          token.isCancelled ||
-          !identical(_voiceTestCancellationToken, token)) {
+      if (!mounted || _isPlaybackCancelled(generation) || token.isCancelled) {
         return;
       }
-
-      if (!result.success) {
-        _stopVoiceTestWithMessage(
-          result.errorMessage ?? 'Не удалось выполнить голосовую проверку.',
-          generation,
-        );
-        return;
-      }
-
-      final resultText = result.resultText?.trim();
-      if (resultText == null || resultText.isEmpty) {
-        _stopVoiceTestWithMessage(
-          'Голосовая проверка не вернула результат.',
-          generation,
-        );
-        return;
-      }
-
-      setState(() {
-        _translateText = resultText;
-        _showBottom = true;
-      });
-
-      await _executeWait(
-        Duration(milliseconds: _pauseBetweenSentencesMs),
-        generation,
-      );
     } finally {
       if (identical(_voiceTestCancellationToken, token)) {
         _voiceTestCancellationToken = null;
       }
     }
-  }
-
-  /// Показывает сообщение и останавливает сценарий без авто-перехода.
-  void _stopVoiceTestWithMessage(String message, int generation) {
-    if (!mounted || generation != _playbackGeneration) return;
-
-    setState(() {
-      _translateText = message;
-      _showBottom = true;
-      _isPlaying = false;
-      _isPaused = false;
-      _playbackGeneration++;
-    });
-
-    _pauseController.reset();
-    BluetoothAudioService.handler.updatePlayingState(false);
   }
 
   Future<void> _runCurrentScenario(int generation) async {
