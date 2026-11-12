@@ -150,12 +150,14 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('Произнесите фразу:',
-                        style: Theme.of(context).textTheme.labelLarge),
-                      const SizedBox(height: 8),
-                      Text(widget.request.referenceText,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(height: 1.45)),
-                      const SizedBox(height: 20),
+                      if (_phase != _DialogPhase.result) ...[
+                        Text('Произнесите фразу:',
+                          style: Theme.of(context).textTheme.labelLarge),
+                        const SizedBox(height: 8),
+                        Text(widget.request.referenceText,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(height: 1.45)),
+                        const SizedBox(height: 20),
+                      ],
                       if (_phase == _DialogPhase.ready) ...[
                         const Text('Нажмите «Начать запись» и произнесите фразу естественно.'),
                         const SizedBox(height: 16),
@@ -220,7 +222,9 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         ],
                         if (_assessment!.insertions.isNotEmpty) ...[
                           const SizedBox(height: 12),
-                          Text('Лишние слова', style: Theme.of(context).textTheme.titleMedium),
+                          Text('Дополнительно распознано', style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 4),
+                          const Text('Этих слов нет в эталонной фразе.'),
                           const SizedBox(height: 5),
                           Wrap(spacing: 6, children: _assessment!.insertions.map((word) =>
                             Chip(label: Text(word), backgroundColor: Colors.amber.shade100)).toList()),
