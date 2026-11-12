@@ -186,4 +186,53 @@ class ApiClient {
 
     return response.bodyBytes;
   }
+
+  /// Отправляет WAV-запись на сервер для оценки произношения.
+  ///
+  /// Сервер возвращает JSON с общей оценкой, распознанным текстом
+  /// и детализацией ошибок произношения.
+  Future<Map<String, dynamic>> assessVoice({
+    required String referenceText,
+    required String locale,
+    required String audioPath,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/voice-test');
+    final request = http.MultipartRequest('POST', uri)
+      ..headers.addAll({'X-API-Key': _apiKey, 'Accept': 'application/json'})
+      ..fields['reference_text'] = referenceText
+      ..fields['locale'] = locale
+      ..files.add(await http.MultipartFile.fromPath('audio', audioPath));
+
+    debugPrint('[API] ===== VOICE ASSESSMENT START =====');
+    debugPrint('[API] POST $uri');
+    debugPrint('[API] Locale: $locale');
+    debugPrint('[API] Reference length: ${referenceText.length}');
+
+    final response = await http.Response.fromStream(await request.send())
+        .timeout(const Duration(seconds: 60));
+
+    debugPrint('[API] Voice assessment HTTP ${response.statusCode}');
+    debugPrint(
+      '[API] Voice assessment response bytes: ${response.bodyBytes.length}',
+    );
+    debugPrint('[API] ===== VOICE ASSESSMENT END =====');
+
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    } on FormatException {
+      throw FormatException(
+        'Сервер оценки произношения вернул некорректный JSON '
+        '(HTTP ${response.statusCode}).',
+      );
+    }
+
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException(
+        'Ответ сервера оценки произношения должен быть JSON-объектом.',
+      );
+    }
+
+    return decoded;
+  }
 }
