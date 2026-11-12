@@ -926,6 +926,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (!mounted || _isPlaybackCancelled(generation) || token.isCancelled) {
         return;
       }
+
+      // Voice test pauses AudioPlayerService before opening the dialog.
+      // Release that pause so the next item can start automatically.
+      await _audioPlayerService.resume();
+
+      if (!mounted || _isPlaybackCancelled(generation)) {
+        return;
+      }
     } finally {
       if (identical(_voiceTestCancellationToken, token)) {
         _voiceTestCancellationToken = null;
@@ -1026,6 +1034,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
           await _runCurrentScenario(generation);
 
           if (_isPlaybackCancelled(generation)) return;
+
+          // A voice assessment completes this item. Do not replay the same
+          // item when repeatCount is greater than one; advance to the next.
+          if (scenario.actions.any((action) => action.action == 'VOICE_TEST')) {
+            repeat = effectiveRepeatCount;
+          }
 
           repeat++;
         }
