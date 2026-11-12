@@ -110,8 +110,12 @@ class VoiceTestAssessment {
     return null;
   }
 
-  static String _normalize(String value) => value.toLowerCase().replaceAll(
-    RegExp(r'^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+, '');
+  static String _normalize(String value) {
+    return value.toLowerCase().replaceAll(
+      RegExp(r'^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$', unicode: true),
+      '',
+    );
+  }
 
   static double? _num(dynamic value) =>
       value is num ? value.toDouble() : null;
