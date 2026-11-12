@@ -1037,7 +1037,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
           // A voice assessment completes this item. Do not replay the same
           // item when repeatCount is greater than one; advance to the next.
-          if (scenario.actions.any((action) => action.action == 'VOICE_TEST')) {
+          if (_selectedScenario?.actions.any((action) => action.action == 'VOICE_TEST') ?? false) {
             repeat = effectiveRepeatCount;
           }
 
