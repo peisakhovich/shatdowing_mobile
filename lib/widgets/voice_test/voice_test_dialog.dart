@@ -71,8 +71,6 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
           json: result.assessmentData!,
         );
         _phase = _DialogPhase.result;
-      } else if (result.errorCode == 'cancelled') {
-        _phase = _DialogPhase.error;
       } else {
         _phase = _DialogPhase.error;
       }
