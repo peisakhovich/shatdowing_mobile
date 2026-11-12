@@ -96,7 +96,7 @@ class VoiceTestAssessment {
         final isInsertion = type == 'insertion';
 
         if (isInsertion) {
-          _addInsertion(insertionResults, word, score);
+          _addInsertion(insertionResults, word, score, mergeExisting: true);
           continue;
         }
 
@@ -221,17 +221,33 @@ class VoiceTestAssessment {
   static void _addInsertion(
     List<VoiceInsertionResult> insertions,
     String word,
-    double? score,
-  ) {
+    double? score, {
+    bool mergeExisting = false,
+  }) {
     final normalized = _normalize(word);
-    final existing = insertions.indexWhere(
-      (item) => _normalize(item.text) == normalized,
-    );
-    if (existing == -1) {
-      insertions.add(VoiceInsertionResult(text: word, accuracy: score));
-    } else if (insertions[existing].accuracy == null && score != null) {
-      insertions[existing] = VoiceInsertionResult(text: word, accuracy: score);
+
+    // Keep every occurrence found in the transcript. Azure's explicit
+    // insertion entry enriches a matching transcript occurrence when present,
+    // instead of creating a duplicate entry for the same spoken word.
+    if (mergeExisting) {
+      final existing = insertions.indexWhere(
+        (item) =>
+            _normalize(item.text) == normalized && item.accuracy == null,
+      );
+      if (existing != -1) {
+        insertions[existing] = VoiceInsertionResult(
+          text: insertions[existing].text,
+          accuracy: score,
+        );
+        return;
+      }
+      if (score == null &&
+          insertions.any((item) => _normalize(item.text) == normalized)) {
+        return;
+      }
     }
+
+    insertions.add(VoiceInsertionResult(text: word, accuracy: score));
   }
 
   static int? _nextUnmapped(List<VoiceWordStatus?> statuses, int start) {
