@@ -81,9 +81,11 @@ class VoiceTestAssessment {
         cursor = match + 1;
       }
     }
-    while (cursor < reference.length) {
-      statuses[cursor] ??= VoiceWordStatus.omission;
-      cursor++;
+    if (rawWords is List && rawWords.isNotEmpty) {
+      while (cursor < reference.length) {
+        statuses[cursor] ??= VoiceWordStatus.omission;
+        cursor++;
+      }
     }
 
     return VoiceTestAssessment(
