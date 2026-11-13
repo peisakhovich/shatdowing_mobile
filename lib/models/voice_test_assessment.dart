@@ -110,6 +110,57 @@ class VoiceTestAssessment {
 
   int get insertionCount => serverInsertionCount ?? insertions.length;
 
+  int get structuralErrorCount =>
+      substitutionCount + omissionCount + insertionCount;
+
+  /// A concise interpretation of both independent analyses.
+  ///
+  /// This is a qualitative conclusion, not an averaged or invented score.
+  String get integratedConclusion {
+    if (!comparisonAvailable) {
+      final pronunciationText = pronunciation == null
+          ? 'Оценка произношения Azure также отсутствует.'
+          : 'Azure оценил произношение на ${pronunciation!.toStringAsFixed(1)}%.';
+      return 'Текстовое сравнение выполнить не удалось. '
+          '$pronunciationText '
+          'Поэтому соответствие произнесённой фразы заданию пока нельзя '
+          'подтвердить.';
+    }
+
+    final structuralText = structuralErrorCount == 0
+        ? 'Обычное распознавание полностью совпало с эталоном: '
+            '$correctCount слов совпали, замен, пропусков и лишних слов нет.'
+        : 'В текстовом сравнении: $correctCount совпадений, '
+            '$substitutionCount замен, $omissionCount пропусков '
+            'и $insertionCount лишних слов.';
+
+    final pronunciationText = pronunciation == null
+        ? 'Azure не предоставил итоговую оценку произношения.'
+        : pronunciation! >= 90
+            ? 'Качество произношения по оценке Azure высокое '
+                '(${pronunciation!.toStringAsFixed(1)}%).'
+            : pronunciation! >= 75
+                ? 'Оценка произношения Azure — '
+                    '${pronunciation!.toStringAsFixed(1)}%; есть возможности '
+                    'для улучшения.'
+                : 'Оценка произношения Azure — '
+                    '${pronunciation!.toStringAsFixed(1)}%; произношение '
+                    'требует дополнительной работы.';
+
+    final pronunciationErrors = mispronunciationCount == 0
+        ? ''
+        : ' Azure отдельно отметил ошибки произношения в '
+            '$mispronunciationCount слов(е).';
+
+    final overallText = structuralErrorCount == 0
+        ? 'Итог: по распознанному тексту задание выполнено точно.'
+        : 'Итог: произнесённая фраза отличается от эталона; '
+            'проверьте перечисленные расхождения.';
+
+    return '$structuralText $pronunciationText'
+        '$pronunciationErrors $overallText';
+  }
+
   factory VoiceTestAssessment.fromJson({
     required String referenceText,
     required Map<String, dynamic> json,
