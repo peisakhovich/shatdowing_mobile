@@ -87,6 +87,19 @@ void main() {
       expect(result.insertions, isEmpty);
     });
 
+    test('uses sequence context even when repeated-word counts are equal', () {
+      final result = VoiceTokenAlignment.align(
+        referenceText: 'A B A C',
+        recognizedText: 'A A B C',
+      );
+
+      expect(result.insertions.length, 1);
+      expect(result.insertions.single.recognizedIndex, 1);
+      expect(result.omissions.length, 1);
+      expect(result.omissions.single.referenceIndex, 2);
+      expect(result.matches.length, 3);
+    });
+
     test('ignores edge punctuation when comparing words', () {
       final result = VoiceTokenAlignment.align(
         referenceText: 'Dzień dobry, jak się masz?',
