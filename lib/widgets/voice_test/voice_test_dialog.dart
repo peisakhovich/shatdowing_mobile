@@ -289,13 +289,14 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                   Text(
                     _scoreText(word.accuracy),
                     style: TextStyle(
-                      color: color,
+                      color: _scoreColor(word.accuracy),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 3),
                   LinearProgressIndicator(
                     value: word.accuracy!.clamp(0.0, 100.0).toDouble() / 100.0,
+                    color: _scoreColor(word.accuracy),
                     minHeight: 5,
                     borderRadius: BorderRadius.circular(4),
                   ),
