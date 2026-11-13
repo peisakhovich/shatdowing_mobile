@@ -216,7 +216,7 @@ class VoiceTestAssessment {
               VoiceAlignmentOperationType.insertion) {
             warnings.add(
               'Azure returned an unpaired word: '
-              '\${azureReferenceWords[azureIndex!]}',
+              '${azureReferenceWords[azureIndex!]}',
             );
           }
           continue;
@@ -330,7 +330,7 @@ class VoiceReferenceText extends StatelessWidget {
 
       spans.add(
         TextSpan(
-          text: '\${word.text}\${index == words.length - 1 ? '' : ' '}',
+          text: '${word.text}${index == words.length - 1 ? '' : ' '}',
           style: TextStyle(
             color: color,
             backgroundColor: background,
