@@ -23,7 +23,7 @@ void main() {
             'method': 'word_level_levenshtein',
             'edit_distance': 2,
             'counts': {
-              'matches': 5,
+              'matches': 6,
               'substitutions': 0,
               'omissions': 0,
               'insertions': 2,
@@ -51,7 +51,7 @@ void main() {
       );
 
       expect(result.comparisonAvailable, isTrue);
-      expect(result.correctCount, 5);
+      expect(result.correctCount, 6);
       expect(result.insertionCount, 2);
       expect(result.insertions.map((item) => item.text),
           ['świeży', 'samochód']);
