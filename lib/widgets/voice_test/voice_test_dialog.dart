@@ -412,6 +412,24 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                             _score('Полнота Azure', _assessment!.completeness),
                           ],
                         ),
+                        const SizedBox(height: 8),
+                        Card(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Итоговое заключение',
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(_assessment!.integratedConclusion),
+                              ],
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         Text('Эталонная фраза',
                             style: Theme.of(context).textTheme.titleMedium),
