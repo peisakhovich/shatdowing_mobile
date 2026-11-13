@@ -2,138 +2,157 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shadowing_mobile/models/voice_test_assessment.dart';
 
 void main() {
-  group('VoiceTestAssessment alignment interpretation', () {
-    test('does not mark a transcript match as both present and omitted', () {
-      final assessment = VoiceTestAssessment.fromJson(
-        referenceText: 'Ja bardzo lubię kawę.',
+  group('VoiceTestAssessment API response', () {
+    test('uses server alignment for matches, substitutions, omissions and insertions', () {
+      final result = VoiceTestAssessment.fromJson(
+        referenceText: 'Dzień dobry, kupię chleb i mleko.',
         json: {
-          'recognized_text': 'Ja bardzo lubię kawę.',
-          'words': [
-            {'word': 'Ja', 'error_type': 'None', 'accuracy_score': 99},
-            {
-              'word': 'bardzo',
-              'error_type': 'Omission',
-              'accuracy_score': 0,
+          'assessment': {
+            'pronunciation_score': 85.6,
+            'accuracy_score': 100.0,
+            'fluency_score': 76.0,
+            'completeness_score': 100.0,
+          },
+          'recognized_text': 'Dzień dobry. Kupię chleb i mleko.',
+          'standard_recognition': {
+            'success': true,
+            'recognized_text': 'Dzień dobry kupię świeży chleb samochód i mleko',
+            'confidence': 0.91,
+          },
+          'comparison': {
+            'method': 'word_level_levenshtein',
+            'edit_distance': 2,
+            'counts': {
+              'matches': 5,
+              'substitutions': 0,
+              'omissions': 0,
+              'insertions': 2,
             },
-            {'word': 'lubię', 'error_type': 'None', 'accuracy_score': 98},
-            {'word': 'kawę.', 'error_type': 'None', 'accuracy_score': 99},
+            'alignment': [
+              {'type': 'match', 'reference_word': 'Dzień', 'recognized_word': 'Dzień'},
+              {'type': 'match', 'reference_word': 'dobry', 'recognized_word': 'dobry'},
+              {'type': 'match', 'reference_word': 'kupię', 'recognized_word': 'kupię'},
+              {'type': 'insertion', 'reference_word': null, 'recognized_word': 'świeży', 'confidence': 0.88},
+              {'type': 'match', 'reference_word': 'chleb', 'recognized_word': 'chleb'},
+              {'type': 'insertion', 'reference_word': null, 'recognized_word': 'samochód', 'confidence': 0.89},
+              {'type': 'match', 'reference_word': 'i', 'recognized_word': 'i'},
+              {'type': 'match', 'reference_word': 'mleko', 'recognized_word': 'mleko'},
+            ],
+          },
+          'words': [
+            {'word': 'Dzień', 'error_type': 'None', 'accuracy_score': 99},
+            {'word': 'dobry', 'error_type': 'None', 'accuracy_score': 98},
+            {'word': 'kupię', 'error_type': 'None', 'accuracy_score': 97},
+            {'word': 'chleb', 'error_type': 'None', 'accuracy_score': 96},
+            {'word': 'i', 'error_type': 'None', 'accuracy_score': 98},
+            {'word': 'mleko', 'error_type': 'None', 'accuracy_score': 99},
           ],
         },
       );
 
-      expect(
-        assessment.referenceWords[1].status,
-        VoiceWordStatus.correct,
-      );
-      expect(assessment.omissionCount, 0);
-      expect(assessment.insertions, isEmpty);
-      expect(assessment.alignmentWarnings, isNotEmpty);
+      expect(result.comparisonAvailable, isTrue);
+      expect(result.correctCount, 5);
+      expect(result.insertionCount, 2);
+      expect(result.insertions.map((item) => item.text),
+          ['świeży', 'samochód']);
+      expect(result.recognizedText,
+          'Dzień dobry kupię świeży chleb samochód i mleko');
+      expect(result.azureRecognizedText, 'Dzień dobry. Kupię chleb i mleko.');
+      expect(result.pronunciation, 85.6);
     });
 
-    test('keeps a genuine transcript omission', () {
-      final assessment = VoiceTestAssessment.fromJson(
-        referenceText: 'Ja bardzo lubię kawę.',
-        json: {
-          'recognized_text': 'Ja lubię kawę.',
-          'words': [
-            {'word': 'Ja', 'error_type': 'None', 'accuracy_score': 99},
-            {
-              'word': 'bardzo',
-              'error_type': 'Omission',
-              'accuracy_score': 0,
-            },
-            {'word': 'lubię', 'error_type': 'None', 'accuracy_score': 98},
-            {'word': 'kawę.', 'error_type': 'None', 'accuracy_score': 99},
-          ],
-        },
-      );
-
-      expect(
-        assessment.referenceWords[1].status,
-        VoiceWordStatus.omission,
-      );
-      expect(assessment.omissionCount, 1);
-      expect(assessment.insertions, isEmpty);
-    });
-
-    test('uses Azure mispronunciation and word score', () {
-      final assessment = VoiceTestAssessment.fromJson(
+    test('keeps Azure pronunciation finding separate from structural substitution', () {
+      final result = VoiceTestAssessment.fromJson(
         referenceText: 'Ja lubię kawę.',
         json: {
-          'recognized_text': 'Ja lubię kawę.',
+          'assessment': {'pronunciation_score': 78},
+          'standard_recognition': {
+            'success': true,
+            'recognized_text': 'Ja kocham kawę',
+          },
+          'comparison': {
+            'counts': {
+              'matches': 2,
+              'substitutions': 1,
+              'omissions': 0,
+              'insertions': 0,
+            },
+            'alignment': [
+              {'type': 'match', 'reference_word': 'Ja', 'recognized_word': 'Ja'},
+              {'type': 'substitution', 'reference_word': 'lubię', 'recognized_word': 'kocham'},
+              {'type': 'match', 'reference_word': 'kawę.', 'recognized_word': 'kawę'},
+            ],
+          },
           'words': [
             {'word': 'Ja', 'error_type': 'None', 'accuracy_score': 99},
-            {
-              'word': 'lubię',
-              'error_type': 'Mispronunciation',
-              'accuracy_score': 54,
-            },
+            {'word': 'lubię', 'error_type': 'Mispronunciation', 'accuracy_score': 54},
             {'word': 'kawę.', 'error_type': 'None', 'accuracy_score': 98},
           ],
         },
       );
 
-      expect(
-        assessment.referenceWords[1].status,
-        VoiceWordStatus.mispronunciation,
-      );
-      expect(assessment.referenceWords[1].accuracy, 54);
+      expect(result.referenceWords[1].status, VoiceWordStatus.substitution);
+      expect(result.referenceWords[1].mispronounced, isTrue);
+      expect(result.mispronunciationCount, 1);
+      expect(result.substitutionCount, 1);
     });
 
-    test('keeps repeated insertions as separate occurrences', () {
-      final assessment = VoiceTestAssessment.fromJson(
+    test('does not fabricate comparison when standard recognition fails', () {
+      final result = VoiceTestAssessment.fromJson(
         referenceText: 'Ja lubię kawę.',
         json: {
-          'recognized_text': 'Ja bardzo bardzo lubię kawę.',
-          'words': [
-            {'word': 'Ja', 'error_type': 'None', 'accuracy_score': 99},
-            {
-              'word': 'bardzo',
-              'error_type': 'Insertion',
-              'accuracy_score': 91,
-            },
-            {
-              'word': 'bardzo',
-              'error_type': 'Insertion',
-              'accuracy_score': 88,
-            },
-            {'word': 'lubię', 'error_type': 'None', 'accuracy_score': 98},
-            {'word': 'kawę.', 'error_type': 'None', 'accuracy_score': 99},
-          ],
-        },
-      );
-
-      expect(assessment.insertions.length, 2);
-      expect(
-        assessment.insertions.map((item) => item.recognizedIndex).toSet(),
-        {1, 2},
-      );
-      expect(
-        assessment.insertions.map((item) => item.accuracy).toList(),
-        [91.0, 88.0],
-      );
-    });
-
-    test('does not invent a transcript insertion from Azure-only evidence', () {
-      final assessment = VoiceTestAssessment.fromJson(
-        referenceText: 'Ja lubię kawę.',
-        json: {
+          'assessment': {'pronunciation_score': 91},
           'recognized_text': 'Ja lubię kawę.',
-          'words': [
-            {'word': 'Ja', 'error_type': 'None', 'accuracy_score': 99},
-            {
-              'word': 'dodatkowo',
-              'error_type': 'Insertion',
-              'accuracy_score': 60,
+          'standard_recognition': {
+            'success': false,
+            'error': {'message': 'Recognition unavailable'},
+          },
+          'comparison': {
+            'success': false,
+            'error': {'message': 'Text comparison unavailable'},
+          },
+        },
+      );
+
+      expect(result.comparisonAvailable, isFalse);
+      expect(result.referenceWords.every(
+          (word) => word.status == VoiceWordStatus.unverified), isTrue);
+      expect(result.insertions, isEmpty);
+      expect(result.integratedConclusion, contains('Текстовое сравнение'));
+      expect(result.pronunciation, 91);
+    });
+
+    test('integrates the two analyses without inventing an averaged score', () {
+      final result = VoiceTestAssessment.fromJson(
+        referenceText: 'Dzień dobry.',
+        json: {
+          'assessment': {'pronunciation_score': 94},
+          'standard_recognition': {
+            'success': true,
+            'recognized_text': 'Dzień dobry',
+          },
+          'comparison': {
+            'counts': {
+              'matches': 2,
+              'substitutions': 0,
+              'omissions': 0,
+              'insertions': 0,
             },
-            {'word': 'lubię', 'error_type': 'None', 'accuracy_score': 98},
-            {'word': 'kawę.', 'error_type': 'None', 'accuracy_score': 99},
+            'alignment': [
+              {'type': 'match', 'reference_word': 'Dzień', 'recognized_word': 'Dzień'},
+              {'type': 'match', 'reference_word': 'dobry.', 'recognized_word': 'dobry'},
+            ],
+          },
+          'words': [
+            {'word': 'Dzień', 'error_type': 'None', 'accuracy_score': 99},
+            {'word': 'dobry.', 'error_type': 'None', 'accuracy_score': 98},
           ],
         },
       );
 
-      expect(assessment.insertions, isEmpty);
-      expect(assessment.alignmentWarnings, isNotEmpty);
+      expect(result.integratedConclusion, contains('полностью совпал'));
+      expect(result.integratedConclusion, contains('высокое'));
+      expect(result.integratedConclusion, isNot(contains('средний балл')));
     });
   });
 }
