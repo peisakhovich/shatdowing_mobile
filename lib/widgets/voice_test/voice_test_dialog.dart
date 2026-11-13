@@ -163,7 +163,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
 
   Color _statusColor(VoiceWordStatus status) => switch (status) {
         VoiceWordStatus.correct => Colors.green.shade700,
-        VoiceWordStatus.mispronunciation => Colors.amber.shade900,
+        VoiceWordStatus.mispronunciation => Colors.yellow.shade800,
         VoiceWordStatus.substitution => Colors.deepPurple.shade700,
         VoiceWordStatus.omission => Colors.red.shade700,
         VoiceWordStatus.unverified => Colors.grey.shade700,
@@ -266,7 +266,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                   Text(
                     'Azure также отметил ошибку произношения',
                     style: TextStyle(
-                      color: Colors.amber.shade900,
+                      color: Colors.yellow.shade800,
                       fontSize: 12,
                     ),
                   ),
@@ -466,7 +466,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         const SizedBox(height: 8),
                         Wrap(spacing: 12, runSpacing: 6, children: [
                           _legend(Colors.green, 'Совпадение'),
-                          _legend(Colors.amber.shade900, 'Ошибка произношения'),
+                          _legend(Colors.yellow.shade700, 'Ошибка произношения'),
                           _legend(Colors.deepPurple, 'Замена'),
                           _legend(Colors.red, 'Пропуск'),
                         ]),
