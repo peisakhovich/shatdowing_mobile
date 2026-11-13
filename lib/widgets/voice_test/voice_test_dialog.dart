@@ -226,6 +226,15 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                   _statusLabel(word.status),
                   style: TextStyle(color: color, fontSize: 12),
                 ),
+                if (word.mispronounced &&
+                    word.status != VoiceWordStatus.mispronunciation)
+                  Text(
+                    'Azure также отметил ошибку произношения',
+                    style: TextStyle(
+                      color: Colors.amber.shade900,
+                      fontSize: 12,
+                    ),
+                  ),
                 if (word.recognizedWord != null &&
                     word.status == VoiceWordStatus.substitution)
                   Text(
