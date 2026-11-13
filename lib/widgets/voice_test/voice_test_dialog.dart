@@ -129,13 +129,17 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   Color _statusColor(VoiceWordStatus status) => switch (status) {
         VoiceWordStatus.correct => Colors.green.shade700,
         VoiceWordStatus.mispronunciation => Colors.amber.shade900,
+        VoiceWordStatus.substitution => Colors.deepOrange.shade700,
         VoiceWordStatus.omission => Colors.red.shade700,
+        VoiceWordStatus.unverified => Colors.grey.shade700,
       };
 
   String _statusLabel(VoiceWordStatus status) => switch (status) {
-        VoiceWordStatus.correct => 'Правильно',
-        VoiceWordStatus.mispronunciation => 'Ошибка произношения',
-        VoiceWordStatus.omission => 'Пропущено',
+        VoiceWordStatus.correct => 'Совпадение',
+        VoiceWordStatus.mispronunciation => 'Ошибка произношения (Azure)',
+        VoiceWordStatus.substitution => 'Заменено другим словом',
+        VoiceWordStatus.omission => 'Не распознано в произнесённой фразе',
+        VoiceWordStatus.unverified => 'Сравнение недоступно',
       };
 
   Widget _wordStatistics(VoiceTestAssessment assessment) {
@@ -144,12 +148,15 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 14),
         childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-        title: const Text('Статистика по словам'),
-        subtitle: Text(
-          'Правильно: ${assessment.correctCount} · '
-          'Ошибки: ${assessment.mispronunciationCount} · '
-          'Пропуски: ${assessment.omissionCount}',
-        ),
+        title: const Text('Сравнение по словам'),
+        subtitle: assessment.comparisonAvailable
+            ? Text(
+                'Совпадения: ${assessment.correctCount} · '
+                'Замены: ${assessment.substitutionCount} · '
+                'Пропуски: ${assessment.omissionCount} · '
+                'Лишние: ${assessment.insertionCount}',
+              )
+            : const Text('Серверное сравнение текста недоступно'),
         children: [
           const Divider(height: 1),
           const SizedBox(height: 6),
@@ -160,7 +167,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Добавленные слова (${assessment.insertions.length})',
+                'Лишние слова (${assessment.insertions.length})',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
@@ -171,11 +178,11 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                 child: Row(
                   children: [
                     const Icon(Icons.add_circle_outline,
-                        color: Colors.amber, size: 19),
+                        color: Colors.deepOrange, size: 19),
                     const SizedBox(width: 8),
                     Expanded(child: Text(insertion.text)),
-                    if (insertion.accuracy != null)
-                      Text('Точность: ${_scoreText(insertion.accuracy)}'),
+                    if (insertion.confidence != null)
+                      Text('Уверенность STT: ${_scoreText(insertion.confidence! * 100)}'),
                   ],
                 ),
               ),
@@ -184,8 +191,9 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
-                'Сервер не вернул индивидуальные оценки для слов. '
-                'Цветовые статусы рассчитаны по сопоставлению текста.',
+                'Azure не вернул индивидуальные оценки точности для слов. '
+                'Структурные совпадения и ошибки текста поступают отдельно '
+                'из серверного сравнения.',
                 style: TextStyle(fontSize: 12),
               ),
             ),
@@ -212,11 +220,18 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(word.text, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(word.text,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
                 Text(
                   _statusLabel(word.status),
                   style: TextStyle(color: color, fontSize: 12),
                 ),
+                if (word.recognizedWord != null &&
+                    word.status == VoiceWordStatus.substitution)
+                  Text(
+                    'Распознано: ${word.recognizedWord}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
               ],
             ),
           ),
@@ -241,7 +256,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   const SizedBox(height: 2),
-                  const Text('Точность слова', style: TextStyle(fontSize: 9)),
+                  const Text('Точность Azure', style: TextStyle(fontSize: 9)),
                 ],
               ),
             )
@@ -249,12 +264,40 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
             const SizedBox(
               width: 104,
               child: Text(
-                'Нет оценки',
+                'Нет оценки Azure',
                 textAlign: TextAlign.end,
                 style: TextStyle(fontSize: 11, color: Colors.grey),
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _transcriptCard({
+    required String title,
+    required String text,
+    required String description,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(top: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 5),
+            Text(text.isEmpty ? 'Текст не получен.' : text),
+            const SizedBox(height: 5),
+            Text(
+              description,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -364,9 +407,9 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                           alignment: WrapAlignment.center,
                           children: [
                             _score('Произношение', _assessment!.pronunciation),
-                            _score('Точность', _assessment!.accuracy),
+                            _score('Точность Azure', _assessment!.accuracy),
                             _score('Беглость', _assessment!.fluency),
-                            _score('Полнота', _assessment!.completeness),
+                            _score('Полнота Azure', _assessment!.completeness),
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -376,31 +419,52 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         VoiceReferenceText(words: _assessment!.referenceWords),
                         const SizedBox(height: 8),
                         Wrap(spacing: 12, runSpacing: 6, children: [
-                          _legend(Colors.green, 'Правильно'),
+                          _legend(Colors.green, 'Совпадение'),
                           _legend(Colors.amber.shade900, 'Ошибка произношения'),
+                          _legend(Colors.deepOrange, 'Замена'),
                           _legend(Colors.red, 'Пропуск'),
                         ]),
                         _wordStatistics(_assessment!),
-                        if (_assessment!.recognizedText.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          Text('Распознано',
-                              style: Theme.of(context).textTheme.titleMedium),
-                          const SizedBox(height: 5),
-                          Text(_assessment!.recognizedText),
+                        if (!_assessment!.comparisonAvailable)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Text(
+                              _assessment!.comparisonError ??
+                                  'Дополнительное распознавание текста не удалось. '
+                                      'Оценки Azure сохранены, но сравнение фразы недоступно.',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ),
+                        if (_assessment!.comparisonAvailable) ...[
+                          _transcriptCard(
+                            title: 'Обычное распознавание (STT)',
+                            text: _assessment!.recognizedText,
+                            description:
+                                'Этот текст использован сервером для поиска совпадений, замен, пропусков и лишних слов.',
+                          ),
                         ],
+                        if (_assessment!.azureRecognizedText.isNotEmpty)
+                          _transcriptCard(
+                            title: 'Распознавание Azure Pronunciation Assessment',
+                            text: _assessment!.azureRecognizedText,
+                            description:
+                                'Это отдельный результат Azure, используемый при оценке произношения.',
+                          ),
                         if (_assessment!.insertions.isNotEmpty) ...[
                           const SizedBox(height: 12),
                           Text('Лишние слова',
                               style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 4),
-                          const Text('Этих слов нет в эталонной фразе.'),
+                          const Text('Эти слова распознаны, но отсутствуют в эталоне.'),
                           const SizedBox(height: 5),
                           Wrap(
                             spacing: 6,
                             children: _assessment!.insertions
                                 .map((item) => Chip(
                                       label: Text(item.text),
-                                      backgroundColor: Colors.amber.shade100,
+                                      backgroundColor: Colors.deepOrange.shade50,
                                     ))
                                 .toList(),
                           ),
