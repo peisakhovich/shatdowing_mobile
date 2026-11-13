@@ -5,29 +5,43 @@ import 'voice_token_alignment.dart';
 enum VoiceWordStatus {
   correct,
   mispronunciation,
+  substitution,
   omission,
+  unverified,
 }
 
 class VoiceWordResult {
   final String text;
   final VoiceWordStatus status;
   final double? accuracy;
+  final String? recognizedWord;
+  final double? confidence;
+  final int? offsetMs;
+  final int? durationMs;
 
   const VoiceWordResult({
     required this.text,
     required this.status,
     this.accuracy,
+    this.recognizedWord,
+    this.confidence,
+    this.offsetMs,
+    this.durationMs,
   });
 }
 
 class VoiceInsertionResult {
   final String text;
-  final double? accuracy;
+  final double? confidence;
+  final int? offsetMs;
+  final int? durationMs;
   final int? recognizedIndex;
 
   const VoiceInsertionResult({
     required this.text,
-    this.accuracy,
+    this.confidence,
+    this.offsetMs,
+    this.durationMs,
     this.recognizedIndex,
   });
 }
@@ -37,11 +51,25 @@ class VoiceTestAssessment {
   final double? accuracy;
   final double? fluency;
   final double? completeness;
+
+  /// Independent standard Speech-to-Text transcript used by comparison.
   final String recognizedText;
+
+  /// Reference-based transcript returned by Pronunciation Assessment.
+  final String azureRecognizedText;
+
   final List<VoiceWordResult> referenceWords;
   final List<VoiceInsertionResult> insertions;
   final VoiceTokenAlignmentResult alignment;
   final List<String> alignmentWarnings;
+  final bool comparisonAvailable;
+  final String? comparisonError;
+  final int? editDistance;
+  final int? serverMatchCount;
+  final int? serverSubstitutionCount;
+  final int? serverOmissionCount;
+  final int? serverInsertionCount;
+  final double? standardRecognitionConfidence;
 
   const VoiceTestAssessment({
     required this.pronunciation,
@@ -49,23 +77,38 @@ class VoiceTestAssessment {
     required this.fluency,
     required this.completeness,
     required this.recognizedText,
+    required this.azureRecognizedText,
     required this.referenceWords,
     required this.insertions,
     required this.alignment,
+    required this.comparisonAvailable,
+    this.comparisonError,
     this.alignmentWarnings = const [],
+    this.editDistance,
+    this.serverMatchCount,
+    this.serverSubstitutionCount,
+    this.serverOmissionCount,
+    this.serverInsertionCount,
+    this.standardRecognitionConfidence,
   });
 
-  int get correctCount => referenceWords
-      .where((word) => word.status == VoiceWordStatus.correct)
-      .length;
+  int get correctCount =>
+      serverMatchCount ??
+      referenceWords.where((word) => word.status == VoiceWordStatus.correct).length;
 
   int get mispronunciationCount => referenceWords
       .where((word) => word.status == VoiceWordStatus.mispronunciation)
       .length;
 
-  int get omissionCount => referenceWords
-      .where((word) => word.status == VoiceWordStatus.omission)
-      .length;
+  int get substitutionCount =>
+      serverSubstitutionCount ??
+      referenceWords.where((word) => word.status == VoiceWordStatus.substitution).length;
+
+  int get omissionCount =>
+      serverOmissionCount ??
+      referenceWords.where((word) => word.status == VoiceWordStatus.omission).length;
+
+  int get insertionCount => serverInsertionCount ?? insertions.length;
 
   factory VoiceTestAssessment.fromJson({
     required String referenceText,
@@ -76,226 +119,210 @@ class VoiceTestAssessment {
         ? Map<String, dynamic>.from(rawAssessment)
         : <String, dynamic>{};
 
-    final recognizedText =
-        json['recognized_text']?.toString().trim() ?? '';
+    final standard = json['standard_recognition'] is Map
+        ? Map<String, dynamic>.from(json['standard_recognition'] as Map)
+        : <String, dynamic>{};
+    final comparison = json['comparison'] is Map
+        ? Map<String, dynamic>.from(json['comparison'] as Map)
+        : <String, dynamic>{};
 
-    // The transcript alignment is the only source of structural operations.
-    final alignment = VoiceTokenAlignment.align(
-      referenceText: referenceText,
-      recognizedText: recognizedText,
-    );
+    final comparisonAlignment = comparison['alignment'];
+    final comparisonAvailable = standard['success'] == true &&
+        comparison['success'] != false &&
+        comparisonAlignment is List;
 
-    final reference = alignment.referenceTokens;
-    final recognized = alignment.recognizedTokens;
+    final standardText = standard['recognized_text']?.toString().trim() ?? '';
+    final azureText = json['recognized_text']?.toString().trim() ?? '';
 
-    final statuses = List<VoiceWordStatus>.filled(
-      reference.length,
-      VoiceWordStatus.correct,
-    );
-    final scores = List<double?>.filled(reference.length, null);
+    // Tokenize only to preserve the user's original spelling and punctuation.
+    // The actual match/substitution/omission/insertion decisions come solely
+    // from comparison.alignment returned by the API.
+    final referenceTokens = _displayTokens(referenceText);
+    final recognizedTokens = <String>[];
+    final operations = <VoiceAlignmentOperation>[];
+    final referenceResults = <VoiceWordResult>[];
     final insertionResults = <VoiceInsertionResult>[];
 
-    for (final operation in alignment.operations) {
-      switch (operation.type) {
-        case VoiceAlignmentOperationType.match:
-          break;
+    final rawAlignment = comparisonAlignment is List
+        ? comparisonAlignment
+        : const <dynamic>[];
 
-        case VoiceAlignmentOperationType.substitution:
-          statuses[operation.referenceIndex!] =
-              VoiceWordStatus.mispronunciation;
-          break;
+    var referenceIndex = 0;
+    var recognizedIndex = 0;
 
-        case VoiceAlignmentOperationType.omission:
-          statuses[operation.referenceIndex!] =
-              VoiceWordStatus.omission;
-          break;
+    for (final raw in rawAlignment) {
+      if (raw is! Map) continue;
+      final item = Map<String, dynamic>.from(raw);
+      final type = item['type']?.toString().toLowerCase();
 
-        case VoiceAlignmentOperationType.insertion:
-          final recognizedIndex = operation.recognizedIndex!;
-          insertionResults.add(
-            VoiceInsertionResult(
-              text: recognized[recognizedIndex],
-              recognizedIndex: recognizedIndex,
-            ),
-          );
-          break;
+      final rawReferenceWord = item['reference_word']?.toString();
+      final rawRecognizedWord = item['recognized_word']?.toString();
+
+      final hasReference = type != 'insertion' && rawReferenceWord != null;
+      final hasRecognized = type != 'omission' && rawRecognizedWord != null;
+
+      final currentReferenceIndex = hasReference ? referenceIndex : null;
+      final currentRecognizedIndex = hasRecognized ? recognizedIndex : null;
+
+      if (hasReference) referenceIndex++;
+      if (hasRecognized) {
+        recognizedTokens.add(rawRecognizedWord!);
+        recognizedIndex++;
       }
+
+      final operationType = switch (type) {
+        'match' => VoiceAlignmentOperationType.match,
+        'substitution' => VoiceAlignmentOperationType.substitution,
+        'omission' => VoiceAlignmentOperationType.omission,
+        'insertion' => VoiceAlignmentOperationType.insertion,
+        _ => null,
+      };
+      if (operationType == null) continue;
+
+      operations.add(VoiceAlignmentOperation(
+        type: operationType,
+        referenceIndex: currentReferenceIndex,
+        recognizedIndex: currentRecognizedIndex,
+      ));
+
+      if (operationType == VoiceAlignmentOperationType.insertion) {
+        insertionResults.add(VoiceInsertionResult(
+          text: rawRecognizedWord ?? '',
+          confidence: _asDouble(item['confidence']),
+          offsetMs: _asInt(item['offset_ms']),
+          durationMs: _asInt(item['duration_ms']),
+          recognizedIndex: currentRecognizedIndex,
+        ));
+        continue;
+      }
+
+      if (currentReferenceIndex == null ||
+          currentReferenceIndex >= referenceTokens.length) {
+        continue;
+      }
+
+      final status = switch (operationType) {
+        VoiceAlignmentOperationType.match => VoiceWordStatus.correct,
+        VoiceAlignmentOperationType.substitution => VoiceWordStatus.substitution,
+        VoiceAlignmentOperationType.omission => VoiceWordStatus.omission,
+        VoiceAlignmentOperationType.insertion => VoiceWordStatus.unverified,
+      };
+
+      referenceResults.add(VoiceWordResult(
+        text: referenceTokens[currentReferenceIndex],
+        status: status,
+        recognizedWord: rawRecognizedWord,
+        confidence: _asDouble(item['confidence']),
+        offsetMs: _asInt(item['offset_ms']),
+        durationMs: _asInt(item['duration_ms']),
+      ));
+    }
+
+    // Keep one result per reference token. If comparison is unavailable, do
+    // not fabricate a local comparison: show neutral, unverified words.
+    if (!comparisonAvailable) {
+      referenceResults
+        ..clear()
+        ..addAll(referenceTokens.map((word) => VoiceWordResult(
+              text: word,
+              status: VoiceWordStatus.unverified,
+            )));
+      operations.clear();
+      insertionResults.clear();
+      recognizedTokens.clear();
     }
 
     final warnings = <String>[];
-    final rawWords = json['words'];
+    final rawAzureWords = json['words'];
+    if (rawAzureWords is List && comparisonAvailable) {
+      var azureReferenceIndex = 0;
+      for (final raw in rawAzureWords) {
+        if (raw is! Map) continue;
+        final word = Map<String, dynamic>.from(raw);
+        final errorType = _normalizeErrorType(
+          word['error_type']?.toString() ?? '',
+        );
+        if (errorType == 'insertion') continue;
+        if (azureReferenceIndex >= referenceResults.length) {
+          warnings.add('Azure вернул больше слов, чем содержит эталон.');
+          break;
+        }
 
-    if (rawWords is List) {
-      _applyAzureWordData(
-        rawWords: rawWords,
-        reference: reference,
-        statuses: statuses,
-        scores: scores,
-        insertions: insertionResults,
-        warnings: warnings,
-      );
+        final existing = referenceResults[azureReferenceIndex];
+        final azureStatus = errorType == 'mispronunciation'
+            ? VoiceWordStatus.mispronunciation
+            : existing.status;
+
+        // Structural comparison status has priority over Azure's omission
+        // flag. Azure contributes pronunciation evidence and word accuracy.
+        referenceResults[azureReferenceIndex] = VoiceWordResult(
+          text: existing.text,
+          status: existing.status == VoiceWordStatus.omission
+              ? existing.status
+              : azureStatus,
+          accuracy: _asDouble(word['accuracy_score']),
+          recognizedWord: existing.recognizedWord,
+          confidence: existing.confidence,
+          offsetMs: existing.offsetMs,
+          durationMs: existing.durationMs,
+        );
+        azureReferenceIndex++;
+      }
     }
+
+    final counts = comparison['counts'] is Map
+        ? Map<String, dynamic>.from(comparison['counts'] as Map)
+        : <String, dynamic>{};
 
     return VoiceTestAssessment(
       pronunciation: _asDouble(assessment['pronunciation_score']),
       accuracy: _asDouble(assessment['accuracy_score']),
       fluency: _asDouble(assessment['fluency_score']),
       completeness: _asDouble(assessment['completeness_score']),
-      recognizedText: recognizedText,
-      referenceWords: List.generate(
-        reference.length,
-        (index) => VoiceWordResult(
-          text: reference[index],
-          status: statuses[index],
-          accuracy: scores[index],
-        ),
-        growable: false,
-      ),
+      recognizedText: standardText,
+      azureRecognizedText: azureText,
+      referenceWords: List.unmodifiable(referenceResults),
       insertions: List.unmodifiable(insertionResults),
-      alignment: alignment,
+      alignment: VoiceTokenAlignmentResult(
+        referenceTokens: List.unmodifiable(referenceTokens),
+        recognizedTokens: List.unmodifiable(recognizedTokens),
+        operations: List.unmodifiable(operations),
+      ),
+      comparisonAvailable: comparisonAvailable,
+      comparisonError: _nestedErrorMessage(comparison),
       alignmentWarnings: List.unmodifiable(warnings),
+      editDistance: _asInt(comparison['edit_distance']),
+      serverMatchCount: _asInt(counts['matches']),
+      serverSubstitutionCount: _asInt(counts['substitutions']),
+      serverOmissionCount: _asInt(counts['omissions']),
+      serverInsertionCount: _asInt(counts['insertions']),
+      standardRecognitionConfidence: _asDouble(standard['confidence']),
     );
   }
 
-  /// Azure data enriches the transcript alignment; it does not replace it.
-  ///
-  /// Azure's word list can contain omission placeholders and insertion
-  /// entries. We separate insertions, align the remaining Azure sequence to
-  /// the reference as a whole, and attach scores through indexed operations.
-  /// Azure mispronunciation evidence may refine a paired word's status.
-  /// An Azure omission never silently turns a transcript match into a
-  /// structural omission; such disagreement is retained as a warning.
-  static void _applyAzureWordData({
-    required List rawWords,
-    required List<String> reference,
-    required List<VoiceWordStatus> statuses,
-    required List<double?> scores,
-    required List<VoiceInsertionResult> insertions,
-    required List<String> warnings,
-  }) {
-    final azureReferenceWords = <String>[];
-    final azureReferenceEntries = <Map<String, dynamic>>[];
-    final azureInsertionEntries = <Map<String, dynamic>>[];
-
-    for (final raw in rawWords) {
-      if (raw is! Map) continue;
-
-      final entry = Map<String, dynamic>.from(raw);
-      final word = entry['word']?.toString().trim() ?? '';
-      if (word.isEmpty) continue;
-
-      final errorType = _normalizeErrorType(
-        entry['error_type']?.toString() ?? '',
-      );
-
-      if (errorType == 'insertion') {
-        azureInsertionEntries.add(entry);
-      } else {
-        azureReferenceWords.add(word);
-        azureReferenceEntries.add(entry);
-      }
-    }
-
-    if (reference.isNotEmpty && azureReferenceWords.isNotEmpty) {
-      final azureAlignment = VoiceTokenAlignment.alignTokens(
-        referenceTokens: reference,
-        recognizedTokens: azureReferenceWords,
-      );
-
-      for (final operation in azureAlignment.operations) {
-        final referenceIndex = operation.referenceIndex;
-        final azureIndex = operation.recognizedIndex;
-
-        if (referenceIndex == null || azureIndex == null) {
-          if (operation.type == VoiceAlignmentOperationType.omission) {
-            warnings.add(
-              'Azure word sequence has no entry for reference token '
-              '#$referenceIndex.',
-            );
-          } else if (operation.type ==
-              VoiceAlignmentOperationType.insertion) {
-            warnings.add(
-              'Azure returned an unpaired word: '
-              '${azureReferenceWords[azureIndex!]}',
-            );
-          }
-          continue;
-        }
-
-        final entry = azureReferenceEntries[azureIndex];
-        final errorType = _normalizeErrorType(
-          entry['error_type']?.toString() ?? '',
-        );
-        final score = _asDouble(entry['accuracy_score']);
-
-        scores[referenceIndex] = score ?? scores[referenceIndex];
-
-        if (errorType == 'mispronunciation') {
-          if (statuses[referenceIndex] == VoiceWordStatus.omission) {
-            warnings.add(
-              'Azure pronunciation result conflicts with transcript '
-              'omission at reference token #$referenceIndex.',
-            );
-          } else {
-            statuses[referenceIndex] =
-                VoiceWordStatus.mispronunciation;
-          }
-        } else if (errorType == 'omission' &&
-            statuses[referenceIndex] != VoiceWordStatus.omission) {
-          warnings.add(
-            'Azure reported omission for reference token '
-            '#$referenceIndex, but the recognized transcript aligned it '
-            'to a spoken token.',
-          );
-        }
-      }
-    }
-
-    // Repeated insertions are enriched one-to-one, never merged by spelling.
-    final enrichedInsertionIndexes = <int>{};
-
-    for (final entry in azureInsertionEntries) {
-      final word = entry['word']?.toString().trim() ?? '';
-      if (word.isEmpty) continue;
-
-      final normalized = VoiceTokenAlignment.normalize(word);
-
-      final insertionIndex = insertions.indexWhere((item) {
-        return item.recognizedIndex != null &&
-            !enrichedInsertionIndexes.contains(item.recognizedIndex) &&
-            VoiceTokenAlignment.normalize(item.text) == normalized;
-      });
-
-      if (insertionIndex < 0) {
-        warnings.add(
-          'Azure reported an insertion not present in the transcript '
-          'insertion list: $word',
-        );
-        continue;
-      }
-
-      final existing = insertions[insertionIndex];
-      final recognizedIndex = existing.recognizedIndex!;
-      enrichedInsertionIndexes.add(recognizedIndex);
-
-      insertions[insertionIndex] = VoiceInsertionResult(
-        text: existing.text,
-        accuracy: _asDouble(entry['accuracy_score']) ?? existing.accuracy,
-        recognizedIndex: recognizedIndex,
-      );
-    }
+  static List<String> _displayTokens(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return const [];
+    return trimmed.split(RegExp(r'\s+'));
   }
 
-  static String _normalizeErrorType(String value) {
-    return value
-        .toLowerCase()
-        .replaceAll('_', '')
-        .replaceAll('-', '')
-        .replaceAll(' ', '');
+  static String? _nestedErrorMessage(Map<String, dynamic> value) {
+    final error = value['error'];
+    if (error is Map) {
+      final message = error['message']?.toString();
+      if (message != null && message.isNotEmpty) return message;
+    }
+    return null;
   }
+
+  static String _normalizeErrorType(String value) =>
+      value.toLowerCase().replaceAll('_', '').replaceAll('-', '').replaceAll(' ', '');
 
   static double? _asDouble(dynamic value) =>
       value is num ? value.toDouble() : null;
+
+  static int? _asInt(dynamic value) =>
+      value is num ? value.toInt() : null;
 }
 
 class VoiceReferenceText extends StatelessWidget {
@@ -312,40 +339,34 @@ class VoiceReferenceText extends StatelessWidget {
 
     for (var index = 0; index < words.length; index++) {
       final word = words[index];
-
       final color = switch (word.status) {
         VoiceWordStatus.correct => Colors.green.shade700,
         VoiceWordStatus.mispronunciation => Colors.amber.shade900,
+        VoiceWordStatus.substitution => Colors.deepOrange.shade700,
         VoiceWordStatus.omission => Colors.red.shade700,
+        VoiceWordStatus.unverified => Colors.grey.shade700,
       };
-
       final background = switch (word.status) {
-        VoiceWordStatus.correct =>
-          Colors.green.withValues(alpha: 0.12),
-        VoiceWordStatus.mispronunciation =>
-          Colors.amber.withValues(alpha: 0.18),
-        VoiceWordStatus.omission =>
-          Colors.red.withValues(alpha: 0.12),
+        VoiceWordStatus.correct => Colors.green.withValues(alpha: 0.12),
+        VoiceWordStatus.mispronunciation => Colors.amber.withValues(alpha: 0.18),
+        VoiceWordStatus.substitution => Colors.deepOrange.withValues(alpha: 0.14),
+        VoiceWordStatus.omission => Colors.red.withValues(alpha: 0.12),
+        VoiceWordStatus.unverified => Colors.grey.withValues(alpha: 0.10),
       };
 
-      spans.add(
-        TextSpan(
-          text: '${word.text}${index == words.length - 1 ? '' : ' '}',
-          style: TextStyle(
-            color: color,
-            backgroundColor: background,
-            fontWeight: FontWeight.w600,
-          ),
+      spans.add(TextSpan(
+        text: '${word.text}${index == words.length - 1 ? '' : ' '}',
+        style: TextStyle(
+          color: color,
+          backgroundColor: background,
+          fontWeight: FontWeight.w600,
         ),
-      );
+      ));
     }
 
     return Text.rich(
       TextSpan(children: spans),
-      style: Theme.of(context)
-          .textTheme
-          .titleMedium
-          ?.copyWith(height: 1.8),
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(height: 1.8),
     );
   }
 }
