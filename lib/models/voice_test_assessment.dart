@@ -14,6 +14,7 @@ class VoiceWordResult {
   final String text;
   final VoiceWordStatus status;
   final double? accuracy;
+  final bool mispronounced;
   final String? recognizedWord;
   final double? confidence;
   final int? offsetMs;
@@ -23,6 +24,7 @@ class VoiceWordResult {
     required this.text,
     required this.status,
     this.accuracy,
+    this.mispronounced = false,
     this.recognizedWord,
     this.confidence,
     this.offsetMs,
@@ -97,7 +99,8 @@ class VoiceTestAssessment {
       referenceWords.where((word) => word.status == VoiceWordStatus.correct).length;
 
   int get mispronunciationCount => referenceWords
-      .where((word) => word.status == VoiceWordStatus.mispronunciation)
+      .where((word) =>
+          word.status == VoiceWordStatus.mispronunciation || word.mispronounced)
       .length;
 
   int get substitutionCount =>
@@ -180,7 +183,8 @@ class VoiceTestAssessment {
     final comparisonAlignment = comparison['alignment'];
     final comparisonAvailable = standard['success'] == true &&
         comparison['success'] != false &&
-        comparisonAlignment is List;
+        comparisonAlignment is List &&
+        comparison['counts'] is Map;
 
     final standardText = standard['recognized_text']?.toString().trim() ?? '';
     final azureText = json['recognized_text']?.toString().trim() ?? '';
@@ -300,7 +304,9 @@ class VoiceTestAssessment {
         }
 
         final existing = referenceResults[azureReferenceIndex];
-        final azureStatus = errorType == 'mispronunciation'
+        final isMispronounced = errorType == 'mispronunciation';
+        final azureStatus = isMispronounced &&
+                existing.status == VoiceWordStatus.correct
             ? VoiceWordStatus.mispronunciation
             : existing.status;
 
@@ -312,6 +318,7 @@ class VoiceTestAssessment {
               ? existing.status
               : azureStatus,
           accuracy: _asDouble(word['accuracy_score']),
+          mispronounced: isMispronounced,
           recognizedWord: existing.recognizedWord,
           confidence: existing.confidence,
           offsetMs: existing.offsetMs,
