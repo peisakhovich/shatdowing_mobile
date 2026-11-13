@@ -263,9 +263,27 @@ class VoiceTokenAlignment {
     final recognizedUsage =
         List<int>.filled(result.recognizedTokens.length, 0);
 
+    var nextReferenceIndex = 0;
+    var nextRecognizedIndex = 0;
+
     for (final operation in result.operations) {
       final referenceIndex = operation.referenceIndex;
       final recognizedIndex = operation.recognizedIndex;
+
+      // Operations must consume both input sequences from left to right.
+      if (referenceIndex != null) {
+        if (referenceIndex != nextReferenceIndex) {
+          throw StateError('Reference tokens are not aligned in sequence order.');
+        }
+        nextReferenceIndex++;
+      }
+
+      if (recognizedIndex != null) {
+        if (recognizedIndex != nextRecognizedIndex) {
+          throw StateError('Recognized tokens are not aligned in sequence order.');
+        }
+        nextRecognizedIndex++;
+      }
 
       switch (operation.type) {
         case VoiceAlignmentOperationType.match:
@@ -302,6 +320,11 @@ class VoiceTokenAlignment {
           recognizedUsage[recognizedIndex]++;
           break;
       }
+    }
+
+    if (nextReferenceIndex != result.referenceTokens.length ||
+        nextRecognizedIndex != result.recognizedTokens.length) {
+      throw StateError('Alignment did not consume both input sequences.');
     }
 
     if (referenceUsage.any((count) => count != 1)) {
