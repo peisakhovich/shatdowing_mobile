@@ -153,7 +153,7 @@ class VoiceTestAssessment {
     final pronunciationErrors = mispronunciationCount == 0
         ? ''
         : ' Azure отдельно отметил ошибки произношения в '
-            '$mispronunciationCount слов(е).';
+            '$mispronunciationCount словах.';
 
     final overallText = structuralErrorCount == 0
         ? 'Итог: по распознанному тексту задание выполнено точно.'
