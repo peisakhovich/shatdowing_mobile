@@ -399,14 +399,14 @@ class VoiceReferenceText extends StatelessWidget {
       final word = words[index];
       final color = switch (word.status) {
         VoiceWordStatus.correct => Colors.green.shade700,
-        VoiceWordStatus.mispronunciation => Colors.amber.shade900,
+        VoiceWordStatus.mispronunciation => Colors.yellow.shade800,
         VoiceWordStatus.substitution => Colors.deepPurple.shade700,
         VoiceWordStatus.omission => Colors.red.shade700,
         VoiceWordStatus.unverified => Colors.grey.shade700,
       };
       final background = switch (word.status) {
         VoiceWordStatus.correct => Colors.green.withValues(alpha: 0.12),
-        VoiceWordStatus.mispronunciation => Colors.amber.withValues(alpha: 0.18),
+        VoiceWordStatus.mispronunciation => Colors.yellow.withValues(alpha: 0.28),
         VoiceWordStatus.substitution => Colors.deepPurple.withValues(alpha: 0.14),
         VoiceWordStatus.omission => Colors.red.withValues(alpha: 0.12),
         VoiceWordStatus.unverified => Colors.grey.withValues(alpha: 0.10),
