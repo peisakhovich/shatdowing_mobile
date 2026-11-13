@@ -221,7 +221,7 @@ class VoiceTestAssessment {
 
       if (hasReference) referenceIndex++;
       if (hasRecognized) {
-        recognizedTokens.add(rawRecognizedWord!);
+        recognizedTokens.add(rawRecognizedWord);
         recognizedIndex++;
       }
 
