@@ -99,6 +99,42 @@ void main() {
       expect(result.substitutionCount, 1);
     });
 
+    test('uses Azure accuracy below 100 as a yellow pronunciation finding', () {
+      final result = VoiceTestAssessment.fromJson(
+        referenceText: 'Ja lubię.',
+        json: {
+          'standard_recognition': {
+            'success': true,
+            'recognized_text': 'Ja lubię',
+          },
+          'comparison': {
+            'counts': {
+              'matches': 2,
+              'substitutions': 0,
+              'omissions': 0,
+              'insertions': 0,
+            },
+            'alignment': [
+              {'type': 'match', 'reference_word': 'Ja', 'recognized_word': 'Ja'},
+              {'type': 'match', 'reference_word': 'lubię.', 'recognized_word': 'lubię'},
+            ],
+          },
+          'words': [
+            {'word': 'Ja', 'error_type': 'None', 'accuracy_score': 100},
+            {'word': 'lubię.', 'error_type': 'None', 'accuracy_score': 54},
+          ],
+        },
+      );
+
+      expect(result.referenceWords[0].azureStatus, VoiceWordStatus.correct);
+      expect(result.referenceWords[0].mispronounced, isFalse);
+      expect(result.referenceWords[1].azureStatus,
+          VoiceWordStatus.mispronunciation);
+      expect(result.referenceWords[1].mispronounced, isTrue);
+      expect(result.referenceWords[1].accuracy, 54);
+      expect(result.mispronunciationCount, 1);
+    });
+
     test('matches Azure scores by word text and skips unmatched Azure tokens', () {
       final result = VoiceTestAssessment.fromJson(
         referenceText: 'Ja lubię kawę.',
@@ -212,7 +248,8 @@ void main() {
 
       expect(result.comparisonAvailable, isTrue);
       expect(result.referenceWords[0].status, VoiceWordStatus.omission);
-      expect(result.referenceWords[0].azureStatus, VoiceWordStatus.correct);
+      expect(result.referenceWords[0].azureStatus,
+          VoiceWordStatus.mispronunciation);
       expect(result.referenceWords[0].accuracy, 97);
       expect(result.referenceWords[1].status, VoiceWordStatus.substitution);
       expect(result.referenceWords[1].azureStatus, VoiceWordStatus.omission);
