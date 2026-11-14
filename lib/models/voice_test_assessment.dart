@@ -338,7 +338,12 @@ class VoiceTestAssessment {
       recognizedTokens.clear();
     }
 
-    if (rawAzureWords is List) {
+    // If the server supplied an invalid/incomplete alignment, reject all
+    // word-level colors for this response rather than mixing partial Azure
+    // scores with an unavailable STT comparison. Azure-only results remain
+    // available when standard recognition itself is unavailable.
+    if (rawAzureWords is List &&
+        !(hasComparisonPayload && !comparisonAvailable)) {
       var nextReferenceIndex = 0;
       for (final raw in rawAzureWords) {
         if (raw is! Map) continue;
