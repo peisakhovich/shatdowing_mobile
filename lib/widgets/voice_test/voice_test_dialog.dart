@@ -287,7 +287,9 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
             ),
           ),
           const SizedBox(width: 8),
-          if (word.accuracy != null)
+          if (word.accuracy != null &&
+              (word.status == VoiceWordStatus.correct ||
+                  word.status == VoiceWordStatus.mispronunciation))
             SizedBox(
               width: 104,
               child: Column(
@@ -312,12 +314,12 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
               ),
             )
           else
-            const SizedBox(
+            SizedBox(
               width: 104,
               child: Text(
-                'Нет оценки',
+                word.accuracy != null ? '—' : 'Нет оценки',
                 textAlign: TextAlign.end,
-                style: TextStyle(fontSize: 11, color: Colors.grey),
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
               ),
             ),
         ],
