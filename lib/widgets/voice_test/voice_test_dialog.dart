@@ -373,7 +373,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                 child: Row(children: [
                   const Expanded(
                     child: Text(
-                      'Проверка произношения',
+                      'Результаты проверки произношения',
                       style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -450,8 +450,6 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         ),
                       ],
                       if (_phase == _DialogPhase.result && _assessment != null) ...[
-                        Text('Результаты',
-                            style: Theme.of(context).textTheme.titleLarge),
                         const SizedBox(height: 2),
                         Text(
                           'Оценка произношения — Azure Pronunciation Assessment',
@@ -462,25 +460,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         const SizedBox(height: 6),
                         _scoresTable(_assessment!),
                         const SizedBox(height: 8),
-                        Card(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          child: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Итоговое заключение',
-                                  style: Theme.of(context).textTheme.titleMedium,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(_assessment!.integratedConclusion),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text('Эталонная фраза',
+                        Text('Отклонения от эталонной фразы',
                             style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 6),
                         VoiceReferenceText(words: _assessment!.referenceWords),
@@ -508,6 +488,24 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                               ),
                             ),
                           ),
+                        Card(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Итоговое заключение',
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(_assessment!.integratedConclusion),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         _wordStatistics(_assessment!),
                         if (_assessment!.insertions.isNotEmpty) ...[
                           const SizedBox(height: 12),
