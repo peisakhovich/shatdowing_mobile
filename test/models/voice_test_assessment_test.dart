@@ -95,7 +95,8 @@ void main() {
       expect(result.referenceWords[1].azureStatus,
           VoiceWordStatus.mispronunciation);
       expect(result.referenceWords[1].mispronounced, isTrue);
-      expect(result.mispronunciationCount, 1);
+      // All three Azure scores (99, 54, 98) are below 100, so all are yellow.
+      expect(result.mispronunciationCount, 3);
       expect(result.substitutionCount, 1);
     });
 
