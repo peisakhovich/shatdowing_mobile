@@ -189,6 +189,20 @@ class VoiceTestAssessment {
     // from comparison.alignment returned by the API.
     final referenceTokens = _displayTokens(referenceText);
     final transcriptTokens = _displayTokens(standardText);
+    // Prefer the recognizer's structured word list for alignment validation.
+    // The display transcript may format numbers as digits (for example "7"),
+    // while the word list and alignment contain the spoken form ("siedem").
+    final rawStandardWords = standard['words'];
+    final structuredTranscriptTokens = rawStandardWords is List
+        ? rawStandardWords
+            .whereType<Map>()
+            .map((word) => word['word']?.toString().trim() ?? '')
+            .where((word) => word.isNotEmpty)
+            .toList()
+        : <String>[];
+    final validationTranscriptTokens = structuredTranscriptTokens.isNotEmpty
+        ? structuredTranscriptTokens
+        : transcriptTokens;
     final rawAlignment = comparisonAlignment is List
         ? comparisonAlignment
         : const <dynamic>[];
@@ -201,7 +215,7 @@ class VoiceTestAssessment {
         _isCompleteAlignment(
           rawAlignment: rawAlignment,
           referenceTokens: referenceTokens,
-          recognizedTokens: transcriptTokens,
+          recognizedTokens: validationTranscriptTokens,
         );
     if (hasComparisonPayload && !comparisonAvailable) {
       warnings.add(
