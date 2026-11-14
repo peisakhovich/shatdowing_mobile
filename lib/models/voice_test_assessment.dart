@@ -1,594 +1,604 @@
 import 'package:flutter/material.dart';
 
-import '../../models/voice_test_assessment.dart';
-import '../../services/voice_test_service.dart';
+import 'voice_token_alignment.dart';
 
-class VoiceTestDialog extends StatefulWidget {
-  final VoiceTestService service;
-  final VoiceTestRequest request;
-  final VoiceTestCancellationToken cancellationToken;
-
-  const VoiceTestDialog({
-    super.key,
-    required this.service,
-    required this.request,
-    required this.cancellationToken,
-  });
-
-  @override
-  State<VoiceTestDialog> createState() => _VoiceTestDialogState();
+enum VoiceWordStatus {
+  correct,
+  mispronunciation,
+  substitution,
+  omission,
+  unverified,
 }
 
-enum _DialogPhase { ready, recording, processing, result, error }
+class VoiceWordResult {
+  final String text;
+  /// Structural status from independent standard Speech-to-Text comparison.
+  final VoiceWordStatus status;
 
-class _VoiceTestDialogState extends State<VoiceTestDialog> {
-  _DialogPhase _phase = _DialogPhase.ready;
-  Duration _recordingDuration = Duration.zero;
-  VoiceTestResult? _result;
-  VoiceTestAssessment? _assessment;
-  bool _starting = false;
+  /// Independent Azure Pronunciation Assessment status.
+  final VoiceWordStatus azureStatus;
+  final double? accuracy;
+  final bool mispronounced;
+  final String? recognizedWord;
+  final double? confidence;
+  final int? offsetMs;
+  final int? durationMs;
 
-  @override
-  void initState() {
-    super.initState();
-    widget.cancellationToken.whenCancelled.then((_) {
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-    });
-  }
+  const VoiceWordResult({
+    required this.text,
+    required this.status,
+    this.azureStatus = VoiceWordStatus.unverified,
+    this.accuracy,
+    this.mispronounced = false,
+    this.recognizedWord,
+    this.confidence,
+    this.offsetMs,
+    this.durationMs,
+  });
+}
 
-  Future<void> _startRecording() async {
-    if (_starting ||
-        _phase == _DialogPhase.recording ||
-        _phase == _DialogPhase.processing) {
-      return;
+class VoiceInsertionResult {
+  final String text;
+  final double? confidence;
+  final int? offsetMs;
+  final int? durationMs;
+  final int? recognizedIndex;
+
+  const VoiceInsertionResult({
+    required this.text,
+    this.confidence,
+    this.offsetMs,
+    this.durationMs,
+    this.recognizedIndex,
+  });
+}
+
+class VoiceTestAssessment {
+  final double? pronunciation;
+  final double? accuracy;
+  final double? fluency;
+  final double? completeness;
+
+  /// Independent standard Speech-to-Text transcript used by comparison.
+  final String recognizedText;
+
+  /// Reference-based transcript returned by Pronunciation Assessment.
+  final String azureRecognizedText;
+
+  final List<VoiceWordResult> referenceWords;
+  final List<VoiceInsertionResult> insertions;
+  final VoiceTokenAlignmentResult alignment;
+  final List<String> alignmentWarnings;
+  final bool comparisonAvailable;
+  final String? comparisonError;
+  final int? editDistance;
+  final int? serverMatchCount;
+  final int? serverSubstitutionCount;
+  final int? serverOmissionCount;
+  final int? serverInsertionCount;
+  final double? standardRecognitionConfidence;
+
+  const VoiceTestAssessment({
+    required this.pronunciation,
+    required this.accuracy,
+    required this.fluency,
+    required this.completeness,
+    required this.recognizedText,
+    required this.azureRecognizedText,
+    required this.referenceWords,
+    required this.insertions,
+    required this.alignment,
+    required this.comparisonAvailable,
+    this.comparisonError,
+    this.alignmentWarnings = const [],
+    this.editDistance,
+    this.serverMatchCount,
+    this.serverSubstitutionCount,
+    this.serverOmissionCount,
+    this.serverInsertionCount,
+    this.standardRecognitionConfidence,
+  });
+
+  int get correctCount =>
+      serverMatchCount ??
+      referenceWords.where((word) => word.status == VoiceWordStatus.correct).length;
+
+  int get mispronunciationCount => referenceWords
+      .where((word) =>
+          word.status == VoiceWordStatus.mispronunciation || word.mispronounced)
+      .length;
+
+  int get substitutionCount =>
+      serverSubstitutionCount ??
+      referenceWords.where((word) => word.status == VoiceWordStatus.substitution).length;
+
+  int get omissionCount =>
+      serverOmissionCount ??
+      referenceWords.where((word) => word.status == VoiceWordStatus.omission).length;
+
+  int get insertionCount => serverInsertionCount ?? insertions.length;
+
+  int get structuralErrorCount =>
+      substitutionCount + omissionCount + insertionCount;
+
+  /// A concise interpretation of both independent analyses.
+  ///
+  /// This is a qualitative conclusion, not an averaged or invented score.
+  String get integratedConclusion {
+    if (!comparisonAvailable) {
+      final pronunciationText = pronunciation == null
+          ? 'Оценка произношения Azure также отсутствует.'
+          : 'Azure оценил произношение на ${pronunciation!.toStringAsFixed(1)}%.';
+      return 'Текстовое сравнение выполнить не удалось. '
+          '$pronunciationText '
+          'Поэтому соответствие произнесённой фразы заданию пока нельзя '
+          'подтвердить.';
     }
 
-    setState(() {
-      _starting = true;
-      _phase = _DialogPhase.recording;
-      _recordingDuration = Duration.zero;
-      _result = null;
-      _assessment = null;
-    });
+    final structuralText = structuralErrorCount == 0
+        ? 'Обычное распознавание полностью совпало с эталоном: '
+            '$correctCount слов совпали, замен, пропусков и лишних слов нет.'
+        : 'В текстовом сравнении: $correctCount совпадений, '
+            '$substitutionCount замен, $omissionCount пропусков '
+            'и $insertionCount лишних слов.';
 
-    final result = await widget.service.execute(
-      request: widget.request,
-      cancellationToken: widget.cancellationToken,
-      onRecordingDurationChanged: (duration) {
-        if (mounted) setState(() => _recordingDuration = duration);
-      },
-      onProcessingStarted: () {
-        if (mounted) setState(() => _phase = _DialogPhase.processing);
-      },
-    );
+    final pronunciationText = pronunciation == null
+        ? 'Azure не предоставил итоговую оценку произношения.'
+        : pronunciation! >= 90
+            ? 'Качество произношения по оценке Azure высокое '
+                '(${pronunciation!.toStringAsFixed(1)}%).'
+            : pronunciation! >= 75
+                ? 'Оценка произношения Azure — '
+                    '${pronunciation!.toStringAsFixed(1)}%; есть возможности '
+                    'для улучшения.'
+                : 'Оценка произношения Azure — '
+                    '${pronunciation!.toStringAsFixed(1)}%; произношение '
+                    'требует дополнительной работы.';
 
-    if (!mounted) return;
-    setState(() {
-      _starting = false;
-      _result = result;
-      if (result.success && result.assessmentData != null) {
-        _assessment = VoiceTestAssessment.fromJson(
-          referenceText: widget.request.referenceText,
-          json: result.assessmentData!,
+    final pronunciationErrors = mispronunciationCount == 0
+        ? ''
+        : ' Azure отдельно отметил ошибки произношения в '
+            '$mispronunciationCount словах.';
+
+    final overallText = structuralErrorCount == 0
+        ? 'Итог: по распознанному тексту задание выполнено точно.'
+        : 'Итог: произнесённая фраза отличается от эталона; '
+            'проверьте перечисленные расхождения.';
+
+    return '$structuralText $pronunciationText'
+        '$pronunciationErrors $overallText';
+  }
+
+  factory VoiceTestAssessment.fromJson({
+    required String referenceText,
+    required Map<String, dynamic> json,
+  }) {
+    final rawAssessment = json['assessment'];
+    final assessment = rawAssessment is Map
+        ? Map<String, dynamic>.from(rawAssessment)
+        : <String, dynamic>{};
+
+    final standard = json['standard_recognition'] is Map
+        ? Map<String, dynamic>.from(json['standard_recognition'] as Map)
+        : <String, dynamic>{};
+    final comparison = json['comparison'] is Map
+        ? Map<String, dynamic>.from(json['comparison'] as Map)
+        : <String, dynamic>{};
+
+    final comparisonAlignment = comparison['alignment'];
+    final standardText = standard['recognized_text']?.toString().trim() ?? '';
+    final azureText = json['recognized_text']?.toString().trim() ?? '';
+
+    // Tokenize only to preserve the user's original spelling and punctuation.
+    // The actual match/substitution/omission/insertion decisions come solely
+    // from comparison.alignment returned by the API.
+    final referenceTokens = _displayTokens(referenceText);
+    final transcriptTokens = _displayTokens(standardText);
+
+    // Azure's word list preserves the spoken/reference token form used by
+    // comparison.alignment. This matters when the displayed reference uses
+    // digits ("7") but Azure and STT expose the spoken form ("siedem").
+    final rawAzureWords = json['words'];
+    final azureReferenceTokens = rawAzureWords is List
+        ? rawAzureWords
+            .whereType<Map>()
+            .where((word) =>
+                _normalizeErrorType(word['error_type']?.toString() ?? '') !=
+                'insertion')
+            .map((word) => word['word']?.toString().trim() ?? '')
+            .where((word) => word.isNotEmpty)
+            .toList()
+        : <String>[];
+    final validationReferenceTokens =
+        azureReferenceTokens.length == referenceTokens.length
+            ? azureReferenceTokens
+            : referenceTokens;
+
+    // Prefer the recognizer's structured word list over the display
+    // transcript, which may format numbers as digits ("7") rather than
+    // their spoken form ("siedem").
+    final rawStandardWords = standard['words'];
+    final structuredTranscriptTokens = rawStandardWords is List
+        ? rawStandardWords
+            .whereType<Map>()
+            .map((word) => word['word']?.toString().trim() ?? '')
+            .where((word) => word.isNotEmpty)
+            .toList()
+        : <String>[];
+    final validationTranscriptTokens = structuredTranscriptTokens.isNotEmpty
+        ? structuredTranscriptTokens
+        : transcriptTokens;
+    final rawAlignment = comparisonAlignment is List
+        ? comparisonAlignment
+        : const <dynamic>[];
+    final warnings = <String>[];
+    final hasComparisonPayload = standard['success'] == true &&
+        comparison['success'] != false &&
+        comparisonAlignment is List &&
+        comparison['counts'] is Map;
+    final comparisonAvailable = hasComparisonPayload &&
+        _isCompleteAlignment(
+          rawAlignment: rawAlignment,
+          referenceTokens: validationReferenceTokens,
+          recognizedTokens: validationTranscriptTokens,
         );
-        _phase = _DialogPhase.result;
-      } else {
-        _phase = _DialogPhase.error;
+    if (hasComparisonPayload && !comparisonAvailable) {
+      warnings.add(
+        'Серверное сравнение неполное или не соответствует тексту '
+        'распознавания; цветовая разметка не применена.',
+      );
+    }
+    final recognizedTokens = <String>[];
+    final operations = <VoiceAlignmentOperation>[];
+    final referenceResults = <VoiceWordResult>[];
+    final insertionResults = <VoiceInsertionResult>[];
+
+    var referenceIndex = 0;
+    var recognizedIndex = 0;
+
+    for (final raw in rawAlignment) {
+      if (raw is! Map) continue;
+      final item = Map<String, dynamic>.from(raw);
+      final type = item['type']?.toString().toLowerCase();
+
+      final rawReferenceWord = item['reference_word']?.toString();
+      final rawRecognizedWord = item['recognized_word']?.toString();
+
+      final hasReference = type != 'insertion' && rawReferenceWord != null;
+      final hasRecognized = type != 'omission' && rawRecognizedWord != null;
+
+      final currentReferenceIndex = hasReference ? referenceIndex : null;
+      final currentRecognizedIndex = hasRecognized ? recognizedIndex : null;
+
+      if (hasReference) referenceIndex++;
+      if (hasRecognized) {
+        recognizedTokens.add(rawRecognizedWord);
+        recognizedIndex++;
       }
-    });
-  }
 
-  void _stopRecording() => widget.service.stopRecording();
+      final operationType = switch (type) {
+        'match' => VoiceAlignmentOperationType.match,
+        'substitution' => VoiceAlignmentOperationType.substitution,
+        'omission' => VoiceAlignmentOperationType.omission,
+        'insertion' => VoiceAlignmentOperationType.insertion,
+        _ => null,
+      };
+      if (operationType == null) continue;
 
-  String _formatDuration(Duration duration) {
-    final seconds = duration.inSeconds;
-    final tenths = (duration.inMilliseconds % 1000) ~/ 100;
-    return '${(seconds ~/ 60).toString().padLeft(2, '0')}:'
-        '${(seconds % 60).toString().padLeft(2, '0')}.$tenths';
-  }
+      operations.add(VoiceAlignmentOperation(
+        type: operationType,
+        referenceIndex: currentReferenceIndex,
+        recognizedIndex: currentRecognizedIndex,
+      ));
 
-  String _scoreText(double? value) => value == null ? '—' : '${value.round()}%';
+      if (operationType == VoiceAlignmentOperationType.insertion) {
+        insertionResults.add(VoiceInsertionResult(
+          text: rawRecognizedWord ?? '',
+          confidence: _asDouble(item['confidence']),
+          offsetMs: _asInt(item['offset_ms']),
+          durationMs: _asInt(item['duration_ms']),
+          recognizedIndex: currentRecognizedIndex,
+        ));
+        continue;
+      }
 
-  Widget _scoreRow(String label, double? value, Color color) {
-    final progress = value == null
-        ? 0.0
-        : value.clamp(0.0, 100.0).toDouble() / 100.0;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          SizedBox(width: 104, child: Text(label)),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 7,
-                color: color,
-                backgroundColor: color.withValues(alpha: 0.13),
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 48,
-            child: Text(
-              _scoreText(value),
-              textAlign: TextAlign.end,
-              style: TextStyle(color: color, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
+      if (currentReferenceIndex == null ||
+          currentReferenceIndex >= referenceTokens.length) {
+        continue;
+      }
+
+      final status = switch (operationType) {
+        VoiceAlignmentOperationType.match => VoiceWordStatus.correct,
+        VoiceAlignmentOperationType.substitution => VoiceWordStatus.substitution,
+        VoiceAlignmentOperationType.omission => VoiceWordStatus.omission,
+        VoiceAlignmentOperationType.insertion => VoiceWordStatus.unverified,
+      };
+
+      referenceResults.add(VoiceWordResult(
+        text: referenceTokens[currentReferenceIndex],
+        status: status,
+        recognizedWord: rawRecognizedWord,
+        confidence: _asDouble(item['confidence']),
+        offsetMs: _asInt(item['offset_ms']),
+        durationMs: _asInt(item['duration_ms']),
+      ));
+    }
+
+    // Keep one result per reference token. If comparison is unavailable, do
+    // not fabricate a local comparison: show neutral, unverified words.
+    if (!comparisonAvailable) {
+      referenceResults
+        ..clear()
+        ..addAll(referenceTokens.map((word) => VoiceWordResult(
+              text: word,
+              status: VoiceWordStatus.unverified,
+            )));
+      operations.clear();
+      insertionResults.clear();
+      recognizedTokens.clear();
+    }
+
+    // If the server supplied an invalid/incomplete alignment, reject all
+    // word-level colors for this response rather than mixing partial Azure
+    // scores with an unavailable STT comparison. Azure-only results remain
+    // available when standard recognition itself is unavailable.
+    if (rawAzureWords is List &&
+        !(hasComparisonPayload && !comparisonAvailable)) {
+      var nextReferenceIndex = 0;
+      for (final raw in rawAzureWords) {
+        if (raw is! Map) continue;
+        final word = Map<String, dynamic>.from(raw);
+        final errorType = _normalizeErrorType(
+          word['error_type']?.toString() ?? '',
+        );
+        if (errorType == 'insertion') continue;
+
+        final azureWord = _normalizeWord(word['word']?.toString() ?? '');
+        if (azureWord.isEmpty) {
+          warnings.add('Azure вернул слово без текста; его оценка не применена.');
+          continue;
+        }
+
+        // Use the canonical validation tokens here as well. The displayed
+        // reference may contain a digit ("7"), while Azure returns "siedem".
+        var matchedIndex = -1;
+        for (var index = nextReferenceIndex;
+            index < referenceResults.length;
+            index++) {
+          if (_normalizeWord(validationReferenceTokens[index]) == azureWord) {
+            matchedIndex = index;
+            break;
+          }
+        }
+
+        if (matchedIndex < 0) {
+          warnings.add(
+            'Не удалось сопоставить слово Azure «${word['word']}» '
+            'со следующим словом эталона; оценка не применена.',
+          );
+          continue;
+        }
+
+        if (matchedIndex > nextReferenceIndex) {
+          warnings.add(
+            'В последовательности Azure пропущено одно или несколько слов '
+            'эталона перед «${word['word']}».',
+          );
+        }
+
+        final existing = referenceResults[matchedIndex];
+        final accuracy = _asDouble(word['accuracy_score']);
+        // Azure's numeric word score is also a pronunciation signal:
+        // any score below 100 is highlighted, unless Azure classified
+        // the word as an omission (which keeps its dedicated red status).
+        final isMispronounced = errorType == 'mispronunciation' ||
+            (errorType != 'omission' && accuracy != null && accuracy < 100);
+        final azureStatus = errorType == 'omission'
+            ? VoiceWordStatus.omission
+            : isMispronounced
+                ? VoiceWordStatus.mispronunciation
+                : errorType == 'none'
+                    ? VoiceWordStatus.correct
+                    : VoiceWordStatus.unverified;
+
+        // Keep Azure and STT results independent. Neither assessment
+        // overwrites the status produced by the other mechanism.
+        referenceResults[matchedIndex] = VoiceWordResult(
+          text: existing.text,
+          status: existing.status,
+          azureStatus: azureStatus,
+          accuracy: accuracy,
+          mispronounced: isMispronounced,
+          recognizedWord: existing.recognizedWord,
+          confidence: existing.confidence,
+          offsetMs: existing.offsetMs,
+          durationMs: existing.durationMs,
+        );
+        nextReferenceIndex = matchedIndex + 1;
+      }
+    }
+
+    final counts = comparison['counts'] is Map
+        ? Map<String, dynamic>.from(comparison['counts'] as Map)
+        : <String, dynamic>{};
+
+    return VoiceTestAssessment(
+      pronunciation: _asDouble(assessment['pronunciation_score']),
+      accuracy: _asDouble(assessment['accuracy_score']),
+      fluency: _asDouble(assessment['fluency_score']),
+      completeness: _asDouble(assessment['completeness_score']),
+      recognizedText: standardText,
+      azureRecognizedText: azureText,
+      referenceWords: List.unmodifiable(referenceResults),
+      insertions: List.unmodifiable(insertionResults),
+      alignment: VoiceTokenAlignmentResult(
+        referenceTokens: List.unmodifiable(referenceTokens),
+        recognizedTokens: List.unmodifiable(recognizedTokens),
+        operations: List.unmodifiable(operations),
       ),
+      comparisonAvailable: comparisonAvailable,
+      comparisonError: _nestedErrorMessage(comparison),
+      alignmentWarnings: List.unmodifiable(warnings),
+      editDistance: _asInt(comparison['edit_distance']),
+      serverMatchCount: _asInt(counts['matches']),
+      serverSubstitutionCount: _asInt(counts['substitutions']),
+      serverOmissionCount: _asInt(counts['omissions']),
+      serverInsertionCount: _asInt(counts['insertions']),
+      standardRecognitionConfidence: _asDouble(standard['confidence']),
     );
   }
 
-  Widget _scoresTable(VoiceTestAssessment assessment) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        child: Column(
-          children: [
-            _scoreRow(
-              'Произношение',
-              assessment.pronunciation,
-              Colors.blue.shade700,
-            ),
-            const Divider(height: 1),
-            _scoreRow('Точность', assessment.accuracy, Colors.green.shade900),
-            const Divider(height: 1),
-            _scoreRow(
-              'Беглость',
-              assessment.fluency,
-              Colors.deepPurple.shade400,
-            ),
-            const Divider(height: 1),
-            _scoreRow(
-              'Полнота',
-              assessment.completeness,
-              Colors.deepOrange.shade600,
-            ),
-          ],
-        ),
-      ),
-    );
+  static bool _isCompleteAlignment({
+    required List<dynamic> rawAlignment,
+    required List<String> referenceTokens,
+    required List<String> recognizedTokens,
+  }) {
+    final alignedReference = <String>[];
+    final alignedRecognized = <String>[];
+
+    for (final raw in rawAlignment) {
+      if (raw is! Map) return false;
+      final item = Map<String, dynamic>.from(raw);
+      final type = item['type']?.toString().toLowerCase();
+      final referenceWord = item['reference_word']?.toString();
+      final recognizedWord = item['recognized_word']?.toString();
+
+      switch (type) {
+        case 'match':
+        case 'substitution':
+          if (referenceWord == null || recognizedWord == null) return false;
+          alignedReference.add(referenceWord);
+          alignedRecognized.add(recognizedWord);
+          break;
+        case 'omission':
+          if (referenceWord == null || recognizedWord != null) return false;
+          alignedReference.add(referenceWord);
+          break;
+        case 'insertion':
+          if (referenceWord != null || recognizedWord == null) return false;
+          alignedRecognized.add(recognizedWord);
+          break;
+        default:
+          return false;
+      }
+    }
+
+    if (alignedReference.length != referenceTokens.length ||
+        alignedRecognized.length != recognizedTokens.length) {
+      return false;
+    }
+
+    for (var index = 0; index < referenceTokens.length; index++) {
+      if (_normalizeWord(alignedReference[index]) !=
+          _normalizeWord(referenceTokens[index])) {
+        return false;
+      }
+    }
+    for (var index = 0; index < recognizedTokens.length; index++) {
+      if (_normalizeWord(alignedRecognized[index]) !=
+          _normalizeWord(recognizedTokens[index])) {
+        return false;
+      }
+    }
+    return true;
   }
 
-  Widget _legend(Color color, String label) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 12,
-        height: 12,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(3),
-        ),
-      ),
-      const SizedBox(width: 5),
-      Text(label, style: Theme.of(context).textTheme.bodySmall),
-    ],
-  );
+  static List<String> _displayTokens(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return const [];
+    return trimmed.split(RegExp(r'\s+'));
+  }
+
+  static String? _nestedErrorMessage(Map<String, dynamic> value) {
+    final error = value['error'];
+    if (error is Map) {
+      final message = error['message']?.toString();
+      if (message != null && message.isNotEmpty) return message;
+    }
+    return null;
+  }
+
+  static String _normalizeWord(String value) => value
+      .toLowerCase()
+      .replaceAll(RegExp(r"""^[.,!?;:()"'«»„“”]+|[.,!?;:()"'«»„“”]+$"""), '');
+
+  static String _normalizeErrorType(String value) =>
+      value.toLowerCase().replaceAll('_', '').replaceAll('-', '').replaceAll(' ', '');
+
+  static double? _asDouble(dynamic value) =>
+      value is num ? value.toDouble() : null;
+
+  static int? _asInt(dynamic value) =>
+      value is num ? value.toInt() : null;
+}
+
+class VoiceReferenceText extends StatelessWidget {
+  final List<VoiceWordResult> words;
+
+  const VoiceReferenceText({
+    super.key,
+    required this.words,
+  });
 
   Color _statusColor(VoiceWordStatus status) => switch (status) {
-    VoiceWordStatus.correct => const Color.fromARGB(255, 16, 107, 66),
-    VoiceWordStatus.mispronunciation => const Color.fromARGB(255, 53, 193, 7),
-    VoiceWordStatus.substitution => Colors.deepPurple.shade700,
-    VoiceWordStatus.omission => Colors.red.shade700,
-    VoiceWordStatus.unverified => const Color.fromARGB(255, 53, 193, 7),
-  };
-
-  String _statusLabel(VoiceWordStatus status) => switch (status) {
-    VoiceWordStatus.correct => 'Совпадение',
-    VoiceWordStatus.mispronunciation => 'Ошибка произношения',
-    VoiceWordStatus.substitution => 'Замена другим словом',
-    VoiceWordStatus.omission => 'Пропуск слова',
-    VoiceWordStatus.unverified => 'Нет оценки',
-  };
-
-  Widget _wordStatistics(VoiceTestAssessment assessment) {
-    return Card(
-      margin: const EdgeInsets.only(top: 12),
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 14),
-        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-        title: const Text('Сравнение по словам'),
-        subtitle: assessment.comparisonAvailable
-            ? Text(
-                'Совпадения: ${assessment.correctCount} · '
-                'Замены: ${assessment.substitutionCount} · '
-                'Пропуски: ${assessment.omissionCount} · '
-                'Лишние: ${assessment.insertionCount}',
-              )
-            : const Text('Серверное сравнение текста недоступно'),
-        children: [
-          const Divider(height: 1),
-          const SizedBox(height: 6),
-          for (var index = 0; index < assessment.referenceWords.length; index++)
-            _wordStatisticsRow(index + 1, assessment.referenceWords[index]),
-          if (assessment.insertions.isNotEmpty) ...[
-            const Divider(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Лишние слова (${assessment.insertions.length})',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-            ),
-            const SizedBox(height: 6),
-            for (final insertion in assessment.insertions)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.add_circle_outline,
-                      color: Colors.deepOrange,
-                      size: 19,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(insertion.text)),
-                    if (insertion.confidence != null)
-                      Text(
-                        'Уверенность STT: ${_scoreText(insertion.confidence! * 100)}',
-                      ),
-                  ],
-                ),
-              ),
-          ],
-          if (assessment.referenceWords.every((word) => word.accuracy == null))
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text(
-                'Azure не вернул индивидуальные оценки точности для слов. '
-                'Структурные совпадения и ошибки текста поступают отдельно '
-                'из серверного сравнения.',
-                style: TextStyle(fontSize: 12),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _wordStatisticsRow(int number, VoiceWordResult word) {
-    final sttColor = _statusColor(word.status);
-    final azureColor = _statusColor(word.azureStatus);
-    final accuracyText = word.accuracy == null
-        ? 'Точность Azure: нет оценки'
-        : 'Точность Azure: ${word.accuracy!.round()}/100';
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 25,
-            child: Text(
-              '$number.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  word.text,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                Text(
-                  'STT: ${_statusLabel(word.status)}',
-                  style: TextStyle(color: sttColor, fontSize: 12),
-                ),
-                Text(
-                  'Azure: ${_statusLabel(word.azureStatus)}',
-                  style: TextStyle(color: azureColor, fontSize: 12),
-                ),
-                Text(
-                  accuracyText,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                if (word.recognizedWord != null &&
-                    word.status == VoiceWordStatus.substitution)
-                  Text(
-                    'Распознано: ${word.recognizedWord}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _transcriptCard({required String title, required String text}) {
-    return Card(
-      margin: const EdgeInsets.only(top: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 5),
-            Text(
-              text.isEmpty ? 'Текст не получен.' : text,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.blue.shade700,
-                fontWeight: FontWeight.w600,
-                height: 1.4,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+        VoiceWordStatus.correct => const Color.fromARGB(255, 16, 107, 66),
+        VoiceWordStatus.mispronunciation =>
+          const Color.fromARGB(255, 53, 193, 7),
+        VoiceWordStatus.substitution => Colors.deepPurple.shade700,
+        VoiceWordStatus.omission => Colors.red.shade700,
+        VoiceWordStatus.unverified => const Color.fromARGB(255, 53, 193, 7),
+      };
 
   @override
   Widget build(BuildContext context) {
-    final busy =
-        _phase == _DialogPhase.recording || _phase == _DialogPhase.processing;
-    return PopScope(
-      canPop: !busy,
-      child: Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: 520,
-            maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+    final spans = <InlineSpan>[];
+
+    for (var index = 0; index < words.length; index++) {
+      final word = words[index];
+      final hasStt = word.status != VoiceWordStatus.unverified;
+      final hasAzure = word.azureStatus != VoiceWordStatus.unverified;
+      final azureColor = _statusColor(word.azureStatus);
+      final sttColor = _statusColor(word.status);
+
+      if (hasAzure && hasStt && word.azureStatus != word.status) {
+        // In a mixed result, Azure colors the first half of the letters
+        // and independent STT colors the second half.
+        final characters = word.text.runes.toList();
+        final azureLetterCount = (characters.length + 1) ~/ 2;
+        for (var letterIndex = 0;
+            letterIndex < characters.length;
+            letterIndex++) {
+          spans.add(TextSpan(
+            text: String.fromCharCode(characters[letterIndex]),
+            style: TextStyle(
+              color: letterIndex < azureLetterCount ? azureColor : sttColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ));
+        }
+      } else {
+        final color = hasAzure
+            ? azureColor
+            : hasStt
+                ? sttColor
+                : _statusColor(VoiceWordStatus.unverified);
+        spans.add(TextSpan(
+          text: word.text,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w600,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 12, 8),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Результаты проверки произношения',
-                        style: TextStyle(
-                          fontSize: 19,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (!busy)
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close),
-                        tooltip: 'Закрыть',
-                      ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (_phase != _DialogPhase.result) ...[
-                        Text(
-                          'Произнесите фразу:',
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          widget.request.referenceText,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(height: 1.45),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                      if (_phase == _DialogPhase.ready) ...[
-                        const Text(
-                          'Нажмите «Начать запись» и произнесите фразу естественно.',
-                        ),
-                        const SizedBox(height: 16),
-                        FilledButton.icon(
-                          onPressed: _startRecording,
-                          icon: const Icon(Icons.mic),
-                          label: const Text('Начать запись'),
-                        ),
-                      ],
-                      if (_phase == _DialogPhase.recording) ...[
-                        const Icon(Icons.mic, size: 42, color: Colors.red),
-                        const SizedBox(height: 8),
-                        Text(
-                          _formatDuration(_recordingDuration),
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        const LinearProgressIndicator(),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Идёт запись. Она завершится после паузы или по кнопке.',
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        FilledButton.icon(
-                          onPressed: _stopRecording,
-                          icon: const Icon(Icons.stop),
-                          label: const Text('Завершить запись'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.red,
-                          ),
-                        ),
-                      ],
-                      if (_phase == _DialogPhase.processing) ...[
-                        const Center(child: CircularProgressIndicator()),
-                        const SizedBox(height: 14),
-                        const Text(
-                          'Отправка записи и оценка произношения…',
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                      if (_phase == _DialogPhase.result &&
-                          _assessment != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          'Оценка произношения — Azure Pronunciation Assessment',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
-                              ),
-                        ),
-                        const SizedBox(height: 6),
-                        _scoresTable(_assessment!),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Отклонения от эталонной фразы',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 6),
-                        VoiceReferenceText(words: _assessment!.referenceWords),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 6,
-                          children: [
-                            _legend(Colors.green.shade900, 'Совпадение'),
-                            _legend(
-                              const Color.fromARGB(255, 53, 193, 7),
-                              'Azure',
-                            ),
-                            _legend(Colors.deepPurple, 'STT: замена'),
-                            _legend(Colors.red, 'Пропуск'),
-                          ],
-                        ),
-                        Text(
-                          'В смешанном слове первая половина букв окрашена по оценке Azure, вторая — по оценке STT.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        if (_assessment!.comparisonAvailable)
-                          _transcriptCard(
-                            title: 'Обычное распознавание (STT)',
-                            text: _assessment!.recognizedText,
-                          ),
-                        if (!_assessment!.comparisonAvailable)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 10),
-                            child: Text(
-                              _assessment!.comparisonError ??
-                                  'Дополнительное распознавание текста не удалось. '
-                                      'Оценки Azure сохранены, но сравнение фразы недоступно.',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                            ),
-                          ),
-                        Card(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHighest,
-                          child: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Итоговое заключение',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(_assessment!.integratedConclusion),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _wordStatistics(_assessment!),
-                        if (_assessment!.insertions.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            'Лишние слова',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Эти слова распознаны, но отсутствуют в эталоне.',
-                          ),
-                          const SizedBox(height: 5),
-                          Wrap(
-                            spacing: 6,
-                            children: _assessment!.insertions
-                                .map(
-                                  (item) => Chip(
-                                    label: Text(item.text),
-                                    backgroundColor: Colors.deepOrange.shade50,
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ],
-                      ],
-                      if (_phase == _DialogPhase.error) ...[
-                        const Icon(
-                          Icons.error_outline,
-                          color: Colors.red,
-                          size: 40,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _result?.errorMessage ??
-                              'Не удалось выполнить проверку.',
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        OutlinedButton.icon(
-                          onPressed: _startRecording,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Повторить запись'),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              if (_phase == _DialogPhase.result || _phase == _DialogPhase.error)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: Row(
-                    children: [
-                      if (_phase == _DialogPhase.result)
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _startRecording,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Повторить'),
-                          ),
-                        ),
-                      if (_phase == _DialogPhase.result)
-                        const SizedBox(width: 10),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('Закрыть'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+        ));
+      }
+
+      if (index != words.length - 1) {
+        spans.add(const TextSpan(text: ' '));
+      }
+    }
+
+    return Text.rich(
+      TextSpan(children: spans),
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(height: 1.8),
     );
   }
 }
