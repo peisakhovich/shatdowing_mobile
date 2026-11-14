@@ -542,7 +542,7 @@ class VoiceReferenceText extends StatelessWidget {
 
   Color _statusColor(VoiceWordStatus status) => switch (status) {
         VoiceWordStatus.correct => Colors.green.shade900,
-        VoiceWordStatus.mispronunciation => const Color(0xFF879B32),
+        VoiceWordStatus.mispronunciation => const Color(0xFFC0CA33),
         VoiceWordStatus.substitution => Colors.deepPurple.shade700,
         VoiceWordStatus.omission => Colors.red.shade700,
         VoiceWordStatus.unverified => Colors.grey.shade700,
