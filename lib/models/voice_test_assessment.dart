@@ -290,7 +290,7 @@ class VoiceTestAssessment {
     final warnings = <String>[];
     final rawAzureWords = json['words'];
     if (rawAzureWords is List && comparisonAvailable) {
-      var azureReferenceIndex = 0;
+      var nextReferenceIndex = 0;
       for (final raw in rawAzureWords) {
         if (raw is! Map) continue;
         final word = Map<String, dynamic>.from(raw);
@@ -298,21 +298,51 @@ class VoiceTestAssessment {
           word['error_type']?.toString() ?? '',
         );
         if (errorType == 'insertion') continue;
-        if (azureReferenceIndex >= referenceResults.length) {
-          warnings.add('Azure вернул больше слов, чем содержит эталон.');
-          break;
+
+        final azureWord = _normalizeWord(word['word']?.toString() ?? '');
+        if (azureWord.isEmpty) {
+          warnings.add('Azure вернул слово без текста; его оценка не применена.');
+          continue;
         }
 
-        final existing = referenceResults[azureReferenceIndex];
+        var matchedIndex = -1;
+        for (var index = nextReferenceIndex;
+            index < referenceResults.length;
+            index++) {
+          if (_normalizeWord(referenceResults[index].text) == azureWord) {
+            matchedIndex = index;
+            break;
+          }
+        }
+
+        if (matchedIndex < 0) {
+          warnings.add(
+            'Не удалось сопоставить слово Azure «' +
+            word['word'].toString() +
+            '» со следующим словом эталона; оценка не применена.',
+          );
+          continue;
+        }
+
+        if (matchedIndex > nextReferenceIndex) {
+          warnings.add(
+            'В последовательности Azure пропущено одно или несколько слов '
+            'эталона перед «' +
+            word['word'].toString() +
+            '».',
+          );
+        }
+
+        final existing = referenceResults[matchedIndex];
         final isMispronounced = errorType == 'mispronunciation';
         final azureStatus = isMispronounced &&
                 existing.status == VoiceWordStatus.correct
             ? VoiceWordStatus.mispronunciation
             : existing.status;
 
-        // Structural comparison status has priority over Azure's omission
-        // flag. Azure contributes pronunciation evidence and word accuracy.
-        referenceResults[azureReferenceIndex] = VoiceWordResult(
+        // Match Azure evidence by normalized word text, not list position.
+        // Structural comparison status remains authoritative.
+        referenceResults[matchedIndex] = VoiceWordResult(
           text: existing.text,
           status: existing.status == VoiceWordStatus.omission
               ? existing.status
@@ -324,7 +354,7 @@ class VoiceTestAssessment {
           offsetMs: existing.offsetMs,
           durationMs: existing.durationMs,
         );
-        azureReferenceIndex++;
+        nextReferenceIndex = matchedIndex + 1;
       }
     }
 
@@ -372,6 +402,10 @@ class VoiceTestAssessment {
     }
     return null;
   }
+
+  static String _normalizeWord(String value) => value
+      .toLowerCase()
+      .replaceAll(RegExp(r"""^[.,!?;:()"'«»„“”]+|[.,!?;:()"'«»„“”]+$"""), '');
 
   static String _normalizeErrorType(String value) =>
       value.toLowerCase().replaceAll('_', '').replaceAll('-', '').replaceAll(' ', '');
