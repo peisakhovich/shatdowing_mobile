@@ -226,22 +226,10 @@ class ApiClient {
     try {
       decoded = jsonDecode(responseBody);
     } on FormatException {
-      if (kDebugMode) {
-        debugPrint('[VOICE TEST JSON] ===== RAW RESPONSE START =====');
-        debugPrint(responseBody);
-        debugPrint('[VOICE TEST JSON] ===== RAW RESPONSE END =====');
-      }
-
       throw FormatException(
         'Сервер оценки произношения вернул некорректный JSON '
         '(HTTP ${response.statusCode}).',
       );
-    }
-
-    if (kDebugMode) {
-      debugPrint('[VOICE TEST JSON] ===== RESPONSE START =====');
-      debugPrint(const JsonEncoder.withIndent('  ').convert(decoded));
-      debugPrint('[VOICE TEST JSON] ===== RESPONSE END =====');
     }
 
     if (decoded is! Map<String, dynamic>) {
