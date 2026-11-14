@@ -189,9 +189,29 @@ class VoiceTestAssessment {
     // from comparison.alignment returned by the API.
     final referenceTokens = _displayTokens(referenceText);
     final transcriptTokens = _displayTokens(standardText);
-    // Prefer the recognizer's structured word list for alignment validation.
-    // The display transcript may format numbers as digits (for example "7"),
-    // while the word list and alignment contain the spoken form ("siedem").
+
+    // Azure's word list preserves the spoken/reference token form used by
+    // comparison.alignment. This matters when the displayed reference uses
+    // digits ("7") but Azure and STT expose the spoken form ("siedem").
+    final rawAzureWords = json['words'];
+    final azureReferenceTokens = rawAzureWords is List
+        ? rawAzureWords
+            .whereType<Map>()
+            .where((word) =>
+                _normalizeErrorType(word['error_type']?.toString() ?? '') !=
+                'insertion')
+            .map((word) => word['word']?.toString().trim() ?? '')
+            .where((word) => word.isNotEmpty)
+            .toList()
+        : <String>[];
+    final validationReferenceTokens =
+        azureReferenceTokens.length == referenceTokens.length
+            ? azureReferenceTokens
+            : referenceTokens;
+
+    // Prefer the recognizer's structured word list over the display
+    // transcript, which may format numbers as digits ("7") rather than
+    // their spoken form ("siedem").
     final rawStandardWords = standard['words'];
     final structuredTranscriptTokens = rawStandardWords is List
         ? rawStandardWords
@@ -214,7 +234,7 @@ class VoiceTestAssessment {
     final comparisonAvailable = hasComparisonPayload &&
         _isCompleteAlignment(
           rawAlignment: rawAlignment,
-          referenceTokens: referenceTokens,
+          referenceTokens: validationReferenceTokens,
           recognizedTokens: validationTranscriptTokens,
         );
     if (hasComparisonPayload && !comparisonAvailable) {
