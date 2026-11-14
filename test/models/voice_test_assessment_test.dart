@@ -155,7 +155,7 @@ void main() {
             },
             'alignment': [
               {'type': 'match', 'reference_word': 'Mam', 'recognized_word': 'Mam'},
-              {'type': 'match', 'reference_word': '7', 'recognized_word': 'siedem'},
+              {'type': 'match', 'reference_word': 'siedem', 'recognized_word': 'siedem'},
               {'type': 'match', 'reference_word': 'lat.', 'recognized_word': 'lat'},
             ],
           },
