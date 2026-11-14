@@ -133,6 +133,48 @@ void main() {
       expect(result.alignmentWarnings, isNotEmpty);
     });
 
+    test('accepts numeric formatting differences when structured STT words match alignment', () {
+      final result = VoiceTestAssessment.fromJson(
+        referenceText: 'Mam 7 lat.',
+        json: {
+          'standard_recognition': {
+            'success': true,
+            'recognized_text': 'Mam 7 lat.',
+            'words': [
+              {'word': 'Mam', 'confidence': 0.98},
+              {'word': 'siedem', 'confidence': 0.99},
+              {'word': 'lat', 'confidence': 0.97},
+            ],
+          },
+          'comparison': {
+            'counts': {
+              'matches': 3,
+              'substitutions': 0,
+              'omissions': 0,
+              'insertions': 0,
+            },
+            'alignment': [
+              {'type': 'match', 'reference_word': 'Mam', 'recognized_word': 'Mam'},
+              {'type': 'match', 'reference_word': '7', 'recognized_word': 'siedem'},
+              {'type': 'match', 'reference_word': 'lat.', 'recognized_word': 'lat'},
+            ],
+          },
+          'words': [
+            {'word': 'Mam', 'error_type': 'None', 'accuracy_score': 100},
+            {'word': 'siedem', 'error_type': 'None', 'accuracy_score': 100},
+            {'word': 'lat', 'error_type': 'None', 'accuracy_score': 100},
+          ],
+        },
+      );
+
+      expect(result.comparisonAvailable, isTrue);
+      expect(result.referenceWords.length, 3);
+      expect(result.referenceWords.every(
+        (word) => word.status == VoiceWordStatus.correct,
+      ), isTrue);
+      expect(result.alignmentWarnings, isEmpty);
+    });
+
     test('rejects an incomplete server alignment instead of showing partial colors', () {
       final result = VoiceTestAssessment.fromJson(
         referenceText: 'Ja lubię kawę.',
