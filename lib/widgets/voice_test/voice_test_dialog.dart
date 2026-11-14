@@ -173,21 +173,13 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   );
 
   Color _statusColor(VoiceWordStatus status) => switch (status) {
-<<<<<<< HEAD
-        VoiceWordStatus.correct => Colors.green.shade900,
-        VoiceWordStatus.mispronunciation => const Color(0xFFFDD835),
-        VoiceWordStatus.substitution => Colors.deepPurple.shade700,
-        VoiceWordStatus.omission => Colors.red.shade700,
-        VoiceWordStatus.unverified => Colors.grey.shade700,
-      };
-=======
     VoiceWordStatus.correct => const Color.fromARGB(255, 16, 107, 66),
     VoiceWordStatus.mispronunciation => const Color.fromARGB(255, 53, 193, 7),
     VoiceWordStatus.substitution => Colors.deepPurple.shade700,
     VoiceWordStatus.omission => Colors.red.shade700,
     VoiceWordStatus.unverified => const Color.fromARGB(255, 51, 145, 19),
   };
->>>>>>> f292f4f (Update voice assessment colors)
+
 
   String _statusLabel(VoiceWordStatus status) => switch (status) {
     VoiceWordStatus.correct => 'Совпадение',
@@ -466,19 +458,14 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         const SizedBox(height: 6),
                         VoiceReferenceText(words: _assessment!.referenceWords),
                         const SizedBox(height: 8),
-<<<<<<< HEAD
-                        Wrap(spacing: 12, runSpacing: 6, children: [
-                          _legend(Colors.green.shade900, 'Совпадение'),
-                          _legend(const Color(0xFFFDD835), 'Azure'),
-                          _legend(Colors.deepPurple, 'STT: замена'),
-                          _legend(Colors.red, 'Пропуск'),
-                        ]),
-=======
                         Wrap(
                           spacing: 12,
                           runSpacing: 6,
                           children: [
-                            _legend(Colors.green.shade900, 'Совпадение'),
+                            _legend(
+                              const Color.fromARGB(255, 16, 107, 66),
+                              'Совпадение',
+                            ),
                             _legend(
                               const Color.fromARGB(255, 53, 193, 7),
                               'Azure',
@@ -487,7 +474,6 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                             _legend(Colors.red, 'Пропуск'),
                           ],
                         ),
->>>>>>> f292f4f (Update voice assessment colors)
                         Text(
                           'В смешанном слове первая половина букв окрашена по оценке Azure, вторая — по оценке STT.',
                           style: Theme.of(context).textTheme.bodySmall,
