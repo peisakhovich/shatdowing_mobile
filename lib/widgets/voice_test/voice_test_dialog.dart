@@ -92,6 +92,13 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   String _scoreText(double? value) =>
       value == null ? '—' : '${value.round()}%';
 
+  Color _wordScoreColor(double? value) {
+    if (value == null) return Colors.grey;
+    if (value >= 90) return Colors.green.shade700;
+    if (value >= 75) return Colors.amber.shade800;
+    return Colors.red.shade700;
+  }
+
   Widget _scoreRow(String label, double? value, Color color) {
     final progress = value == null
         ? 0.0
@@ -289,14 +296,14 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                   Text(
                     _scoreText(word.accuracy),
                     style: TextStyle(
-                      color: _scoreColor(word.accuracy),
+                      color: _wordScoreColor(word.accuracy),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 3),
                   LinearProgressIndicator(
                     value: word.accuracy!.clamp(0.0, 100.0).toDouble() / 100.0,
-                    color: _scoreColor(word.accuracy),
+                    color: _wordScoreColor(word.accuracy),
                     minHeight: 5,
                     borderRadius: BorderRadius.circular(4),
                   ),
