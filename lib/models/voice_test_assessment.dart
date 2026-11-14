@@ -556,13 +556,13 @@ class VoiceReferenceText extends StatelessWidget {
       if (hasAzure && hasStt && word.azureStatus != word.status) {
         // In a mixed result, Azure colors the first half of the letters
         // and independent STT colors the second half.
-        final characters = word.text.characters.toList();
+        final characters = word.text.runes.toList();
         final azureLetterCount = (characters.length + 1) ~/ 2;
         for (var letterIndex = 0;
             letterIndex < characters.length;
             letterIndex++) {
           spans.add(TextSpan(
-            text: characters[letterIndex],
+            text: String.fromCharCode(characters[letterIndex]),
             style: TextStyle(
               color: letterIndex < azureLetterCount ? azureColor : sttColor,
               fontWeight: FontWeight.w600,
