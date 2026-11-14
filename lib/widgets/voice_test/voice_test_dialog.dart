@@ -163,7 +163,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
 
   Color _statusColor(VoiceWordStatus status) => switch (status) {
         VoiceWordStatus.correct => Colors.green.shade900,
-        VoiceWordStatus.mispronunciation => const Color(0xFFC0CA33),
+        VoiceWordStatus.mispronunciation => const Color(0xFFFDD835),
         VoiceWordStatus.substitution => Colors.deepPurple.shade700,
         VoiceWordStatus.omission => Colors.red.shade700,
         VoiceWordStatus.unverified => Colors.grey.shade700,
@@ -433,7 +433,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         const SizedBox(height: 8),
                         Wrap(spacing: 12, runSpacing: 6, children: [
                           _legend(Colors.green.shade900, 'Совпадение'),
-                          _legend(const Color(0xFFC0CA33), 'Azure'),
+                          _legend(const Color(0xFFFDD835), 'Azure'),
                           _legend(Colors.deepPurple, 'STT: замена'),
                           _legend(Colors.red, 'Пропуск'),
                         ]),
