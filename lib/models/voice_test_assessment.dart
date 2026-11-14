@@ -333,7 +333,6 @@ class VoiceTestAssessment {
       recognizedTokens.clear();
     }
 
-    final rawAzureWords = json['words'];
     if (rawAzureWords is List && comparisonAvailable) {
       var nextReferenceIndex = 0;
       for (final raw in rawAzureWords) {
