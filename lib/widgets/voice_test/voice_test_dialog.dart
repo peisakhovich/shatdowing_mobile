@@ -134,7 +134,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
           children: [
             _scoreRow('Произношение', assessment.pronunciation, Colors.blue.shade700),
             const Divider(height: 1),
-            _scoreRow('Точность', assessment.accuracy, Colors.green.shade700),
+            _scoreRow('Точность', assessment.accuracy, Colors.green.shade900),
             const Divider(height: 1),
             _scoreRow('Беглость', assessment.fluency, Colors.deepPurple.shade400),
             const Divider(height: 1),
@@ -162,8 +162,8 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
       );
 
   Color _statusColor(VoiceWordStatus status) => switch (status) {
-        VoiceWordStatus.correct => Colors.green.shade700,
-        VoiceWordStatus.mispronunciation => Colors.lime.shade800,
+        VoiceWordStatus.correct => Colors.green.shade900,
+        VoiceWordStatus.mispronunciation => const Color(0xFF879B32),
         VoiceWordStatus.substitution => Colors.deepPurple.shade700,
         VoiceWordStatus.omission => Colors.red.shade700,
         VoiceWordStatus.unverified => Colors.grey.shade700,
@@ -432,8 +432,8 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         VoiceReferenceText(words: _assessment!.referenceWords),
                         const SizedBox(height: 8),
                         Wrap(spacing: 12, runSpacing: 6, children: [
-                          _legend(Colors.green, 'Совпадение'),
-                          _legend(Colors.lime.shade800, 'Azure'),
+                          _legend(Colors.green.shade900, 'Совпадение'),
+                          _legend(const Color(0xFF879B32), 'Azure'),
                           _legend(Colors.deepPurple, 'STT: замена'),
                           _legend(Colors.red, 'Пропуск'),
                         ]),
