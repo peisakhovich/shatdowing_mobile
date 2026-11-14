@@ -387,13 +387,19 @@ class VoiceTestAssessment {
         }
 
         final existing = referenceResults[matchedIndex];
-        final isMispronounced = errorType == 'mispronunciation';
-        final azureStatus = switch (errorType) {
-          'none' => VoiceWordStatus.correct,
-          'mispronunciation' => VoiceWordStatus.mispronunciation,
-          'omission' => VoiceWordStatus.omission,
-          _ => VoiceWordStatus.unverified,
-        };
+        final accuracy = _asDouble(word['accuracy_score']);
+        // Azure's numeric word score is also a pronunciation signal:
+        // any score below 100 is highlighted, unless Azure classified
+        // the word as an omission (which keeps its dedicated red status).
+        final isMispronounced = errorType == 'mispronunciation' ||
+            (errorType != 'omission' && accuracy != null && accuracy < 100);
+        final azureStatus = errorType == 'omission'
+            ? VoiceWordStatus.omission
+            : isMispronounced
+                ? VoiceWordStatus.mispronunciation
+                : errorType == 'none'
+                    ? VoiceWordStatus.correct
+                    : VoiceWordStatus.unverified;
 
         // Keep Azure and STT results independent. Neither assessment
         // overwrites the status produced by the other mechanism.
@@ -401,7 +407,7 @@ class VoiceTestAssessment {
           text: existing.text,
           status: existing.status,
           azureStatus: azureStatus,
-          accuracy: _asDouble(word['accuracy_score']),
+          accuracy: accuracy,
           mispronounced: isMispronounced,
           recognizedWord: existing.recognizedWord,
           confidence: existing.confidence,
