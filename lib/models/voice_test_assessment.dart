@@ -328,9 +328,8 @@ class VoiceTestAssessment {
 
         if (matchedIndex < 0) {
           warnings.add(
-            'Не удалось сопоставить слово Azure «' +
-            word['word'].toString() +
-            '» со следующим словом эталона; оценка не применена.',
+            'Не удалось сопоставить слово Azure «${word['word']}» '
+            'со следующим словом эталона; оценка не применена.',
           );
           continue;
         }
@@ -338,9 +337,7 @@ class VoiceTestAssessment {
         if (matchedIndex > nextReferenceIndex) {
           warnings.add(
             'В последовательности Azure пропущено одно или несколько слов '
-            'эталона перед «' +
-            word['word'].toString() +
-            '».',
+            'эталона перед «${word['word']}».',
           );
         }
 
