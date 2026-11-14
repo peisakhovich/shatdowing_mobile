@@ -468,7 +468,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                           _legend(Colors.red, 'Пропуск'),
                         ]),
                         Text(
-                          'В двухцветной заливке слева показан Azure, справа — STT.',
+                          'В смешанном слове первая половина букв окрашена по оценке Azure, вторая — по оценке STT.',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         if (_assessment!.comparisonAvailable)
