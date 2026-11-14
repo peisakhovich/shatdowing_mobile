@@ -349,11 +349,13 @@ class VoiceTestAssessment {
           continue;
         }
 
+        // Use the canonical validation tokens here as well. The displayed
+        // reference may contain a digit ("7"), while Azure returns "siedem".
         var matchedIndex = -1;
         for (var index = nextReferenceIndex;
             index < referenceResults.length;
             index++) {
-          if (_normalizeWord(referenceResults[index].text) == azureWord) {
+          if (_normalizeWord(validationReferenceTokens[index]) == azureWord) {
             matchedIndex = index;
             break;
           }
@@ -381,7 +383,6 @@ class VoiceTestAssessment {
             ? VoiceWordStatus.mispronunciation
             : existing.status;
 
-        // Match Azure evidence by normalized word text, not list position.
         // Structural comparison status remains authoritative.
         referenceResults[matchedIndex] = VoiceWordResult(
           text: existing.text,
