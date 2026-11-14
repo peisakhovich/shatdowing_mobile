@@ -181,11 +181,6 @@ class VoiceTestAssessment {
         : <String, dynamic>{};
 
     final comparisonAlignment = comparison['alignment'];
-    final comparisonAvailable = standard['success'] == true &&
-        comparison['success'] != false &&
-        comparisonAlignment is List &&
-        comparison['counts'] is Map;
-
     final standardText = standard['recognized_text']?.toString().trim() ?? '';
     final azureText = json['recognized_text']?.toString().trim() ?? '';
 
@@ -193,14 +188,31 @@ class VoiceTestAssessment {
     // The actual match/substitution/omission/insertion decisions come solely
     // from comparison.alignment returned by the API.
     final referenceTokens = _displayTokens(referenceText);
+    final transcriptTokens = _displayTokens(standardText);
+    final rawAlignment = comparisonAlignment is List
+        ? comparisonAlignment
+        : const <dynamic>[];
+    final warnings = <String>[];
+    final hasComparisonPayload = standard['success'] == true &&
+        comparison['success'] != false &&
+        comparisonAlignment is List &&
+        comparison['counts'] is Map;
+    final comparisonAvailable = hasComparisonPayload &&
+        _isCompleteAlignment(
+          rawAlignment: rawAlignment,
+          referenceTokens: referenceTokens,
+          recognizedTokens: transcriptTokens,
+        );
+    if (hasComparisonPayload && !comparisonAvailable) {
+      warnings.add(
+        'Серверное сравнение неполное или не соответствует тексту '
+        'распознавания; цветовая разметка не применена.',
+      );
+    }
     final recognizedTokens = <String>[];
     final operations = <VoiceAlignmentOperation>[];
     final referenceResults = <VoiceWordResult>[];
     final insertionResults = <VoiceInsertionResult>[];
-
-    final rawAlignment = comparisonAlignment is List
-        ? comparisonAlignment
-        : const <dynamic>[];
 
     var referenceIndex = 0;
     var recognizedIndex = 0;
@@ -287,7 +299,6 @@ class VoiceTestAssessment {
       recognizedTokens.clear();
     }
 
-    final warnings = <String>[];
     final rawAzureWords = json['words'];
     if (rawAzureWords is List && comparisonAvailable) {
       var nextReferenceIndex = 0;
@@ -386,6 +397,61 @@ class VoiceTestAssessment {
       serverInsertionCount: _asInt(counts['insertions']),
       standardRecognitionConfidence: _asDouble(standard['confidence']),
     );
+  }
+
+  static bool _isCompleteAlignment({
+    required List<dynamic> rawAlignment,
+    required List<String> referenceTokens,
+    required List<String> recognizedTokens,
+  }) {
+    final alignedReference = <String>[];
+    final alignedRecognized = <String>[];
+
+    for (final raw in rawAlignment) {
+      if (raw is! Map) return false;
+      final item = Map<String, dynamic>.from(raw);
+      final type = item['type']?.toString().toLowerCase();
+      final referenceWord = item['reference_word']?.toString();
+      final recognizedWord = item['recognized_word']?.toString();
+
+      switch (type) {
+        case 'match':
+        case 'substitution':
+          if (referenceWord == null || recognizedWord == null) return false;
+          alignedReference.add(referenceWord);
+          alignedRecognized.add(recognizedWord);
+          break;
+        case 'omission':
+          if (referenceWord == null || recognizedWord != null) return false;
+          alignedReference.add(referenceWord);
+          break;
+        case 'insertion':
+          if (referenceWord != null || recognizedWord == null) return false;
+          alignedRecognized.add(recognizedWord);
+          break;
+        default:
+          return false;
+      }
+    }
+
+    if (alignedReference.length != referenceTokens.length ||
+        alignedRecognized.length != recognizedTokens.length) {
+      return false;
+    }
+
+    for (var index = 0; index < referenceTokens.length; index++) {
+      if (_normalizeWord(alignedReference[index]) !=
+          _normalizeWord(referenceTokens[index])) {
+        return false;
+      }
+    }
+    for (var index = 0; index < recognizedTokens.length; index++) {
+      if (_normalizeWord(alignedRecognized[index]) !=
+          _normalizeWord(recognizedTokens[index])) {
+        return false;
+      }
+    }
+    return true;
   }
 
   static List<String> _displayTokens(String text) {
