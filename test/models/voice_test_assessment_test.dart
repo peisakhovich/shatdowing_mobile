@@ -92,6 +92,8 @@ void main() {
       );
 
       expect(result.referenceWords[1].status, VoiceWordStatus.substitution);
+      expect(result.referenceWords[1].azureStatus,
+          VoiceWordStatus.mispronunciation);
       expect(result.referenceWords[1].mispronounced, isTrue);
       expect(result.mispronunciationCount, 1);
       expect(result.substitutionCount, 1);
@@ -172,7 +174,49 @@ void main() {
       expect(result.referenceWords.every(
         (word) => word.status == VoiceWordStatus.correct,
       ), isTrue);
+      expect(result.referenceWords.every(
+        (word) => word.azureStatus == VoiceWordStatus.correct,
+      ), isTrue);
       expect(result.alignmentWarnings, isEmpty);
+    });
+
+    test('keeps Azure and STT statuses independent for split word colors', () {
+      final result = VoiceTestAssessment.fromJson(
+        referenceText: 'Mam chodzę.',
+        json: {
+          'standard_recognition': {
+            'success': true,
+            'recognized_text': 'chodzi',
+            'words': [
+              {'word': 'chodzi', 'confidence': 0.5},
+            ],
+          },
+          'comparison': {
+            'counts': {
+              'matches': 0,
+              'substitutions': 1,
+              'omissions': 1,
+              'insertions': 0,
+            },
+            'alignment': [
+              {'type': 'omission', 'reference_word': 'Mam', 'recognized_word': null},
+              {'type': 'substitution', 'reference_word': 'chodzę.', 'recognized_word': 'chodzi'},
+            ],
+          },
+          'words': [
+            {'word': 'Mam', 'error_type': 'None', 'accuracy_score': 97},
+            {'word': 'chodzę.', 'error_type': 'Omission', 'accuracy_score': 0},
+          ],
+        },
+      );
+
+      expect(result.comparisonAvailable, isTrue);
+      expect(result.referenceWords[0].status, VoiceWordStatus.omission);
+      expect(result.referenceWords[0].azureStatus, VoiceWordStatus.correct);
+      expect(result.referenceWords[0].accuracy, 97);
+      expect(result.referenceWords[1].status, VoiceWordStatus.substitution);
+      expect(result.referenceWords[1].azureStatus, VoiceWordStatus.omission);
+      expect(result.referenceWords[1].recognizedWord, 'chodzi');
     });
 
     test('rejects an incomplete server alignment instead of showing partial colors', () {
