@@ -179,9 +179,9 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   String _statusLabel(VoiceWordStatus status) => switch (status) {
         VoiceWordStatus.correct => 'Совпадение',
         VoiceWordStatus.mispronunciation => 'Ошибка произношения',
-        VoiceWordStatus.substitution => 'Заменено другим словом',
-        VoiceWordStatus.omission => 'Не распознано в произнесённой фразе',
-        VoiceWordStatus.unverified => 'Сравнение недоступно',
+        VoiceWordStatus.substitution => 'Замена другим словом',
+        VoiceWordStatus.omission => 'Пропуск слова',
+        VoiceWordStatus.unverified => 'Нет оценки',
       };
 
   Widget _wordStatistics(VoiceTestAssessment assessment) {
@@ -245,7 +245,8 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   }
 
   Widget _wordStatisticsRow(int number, VoiceWordResult word) {
-    final color = _statusColor(word.status);
+    final sttColor = _statusColor(word.status);
+    final azureColor = _statusColor(word.azureStatus);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
@@ -265,18 +266,13 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                 Text(word.text,
                     style: const TextStyle(fontWeight: FontWeight.w600)),
                 Text(
-                  _statusLabel(word.status),
-                  style: TextStyle(color: color, fontSize: 12),
+                  'STT: ${_statusLabel(word.status)}',
+                  style: TextStyle(color: sttColor, fontSize: 12),
                 ),
-                if (word.mispronounced &&
-                    word.status != VoiceWordStatus.mispronunciation)
-                  Text(
-                    'Azure также отметил ошибку произношения',
-                    style: TextStyle(
-                      color: Colors.yellow.shade800,
-                      fontSize: 12,
-                    ),
-                  ),
+                Text(
+                  'Azure: ${_statusLabel(word.azureStatus)}',
+                  style: TextStyle(color: azureColor, fontSize: 12),
+                ),
                 if (word.recognizedWord != null &&
                     word.status == VoiceWordStatus.substitution)
                   Text(
@@ -287,9 +283,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
             ),
           ),
           const SizedBox(width: 8),
-          if (word.accuracy != null &&
-              (word.status == VoiceWordStatus.correct ||
-                  word.status == VoiceWordStatus.mispronunciation))
+          if (word.accuracy != null)
             SizedBox(
               width: 104,
               child: Column(
@@ -469,8 +463,8 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         const SizedBox(height: 8),
                         Wrap(spacing: 12, runSpacing: 6, children: [
                           _legend(Colors.green, 'Совпадение'),
-                          _legend(Colors.yellow.shade700, 'Ошибка произношения'),
-                          _legend(Colors.deepPurple, 'Замена'),
+                          _legend(Colors.yellow.shade700, 'Azure'),
+                          _legend(Colors.deepPurple, 'STT: замена'),
                           _legend(Colors.red, 'Пропуск'),
                         ]),
                         if (_assessment!.comparisonAvailable)
