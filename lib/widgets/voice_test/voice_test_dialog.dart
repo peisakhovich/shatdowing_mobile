@@ -467,6 +467,10 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                           _legend(Colors.deepPurple, 'STT: замена'),
                           _legend(Colors.red, 'Пропуск'),
                         ]),
+                        Text(
+                          'В двухцветной заливке слева показан Azure, справа — STT.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                         if (_assessment!.comparisonAvailable)
                           _transcriptCard(
                             title: 'Обычное распознавание (STT)',
