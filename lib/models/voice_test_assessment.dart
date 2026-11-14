@@ -534,71 +534,56 @@ class VoiceReferenceText extends StatelessWidget {
     required this.words,
   });
 
-  Color _statusBackground(VoiceWordStatus status) => switch (status) {
-        VoiceWordStatus.correct => Colors.green.withValues(alpha: 0.20),
-        VoiceWordStatus.mispronunciation =>
-          Colors.yellow.withValues(alpha: 0.42),
-        VoiceWordStatus.substitution =>
-          Colors.deepPurple.withValues(alpha: 0.28),
-        VoiceWordStatus.omission => Colors.red.withValues(alpha: 0.22),
-        VoiceWordStatus.unverified => Colors.grey.withValues(alpha: 0.14),
+  Color _statusColor(VoiceWordStatus status) => switch (status) {
+        VoiceWordStatus.correct => Colors.green.shade700,
+        VoiceWordStatus.mispronunciation => Colors.yellow.shade800,
+        VoiceWordStatus.substitution => Colors.deepPurple.shade700,
+        VoiceWordStatus.omission => Colors.red.shade700,
+        VoiceWordStatus.unverified => Colors.grey.shade700,
       };
 
   @override
   Widget build(BuildContext context) {
     final spans = <InlineSpan>[];
-    final textColor = Theme.of(context).colorScheme.onSurface;
 
     for (var index = 0; index < words.length; index++) {
       final word = words[index];
       final hasStt = word.status != VoiceWordStatus.unverified;
       final hasAzure = word.azureStatus != VoiceWordStatus.unverified;
-      final sttColor = _statusBackground(word.status);
-      final azureColor = _statusBackground(word.azureStatus);
+      final azureColor = _statusColor(word.azureStatus);
+      final sttColor = _statusColor(word.status);
 
-      final Decoration decoration;
-      if (hasStt && hasAzure && word.status != word.azureStatus) {
-        decoration = BoxDecoration(
-          borderRadius: BorderRadius.circular(3),
-          gradient: LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              azureColor,
-              azureColor,
-              sttColor,
-              sttColor,
-            ],
-            stops: const [0.0, 0.5, 0.5, 1.0],
-          ),
-        );
-      } else {
-        final background = hasStt
-            ? sttColor
-            : hasAzure
-                ? azureColor
-                : _statusBackground(VoiceWordStatus.unverified);
-        decoration = BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(3),
-        );
-      }
-
-      spans.add(WidgetSpan(
-        alignment: PlaceholderAlignment.baseline,
-        baseline: TextBaseline.alphabetic,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-          decoration: decoration,
-          child: Text(
-            word.text,
+      if (hasAzure && hasStt && word.azureStatus != word.status) {
+        // In a mixed result, Azure colors the first half of the letters
+        // and independent STT colors the second half.
+        final characters = word.text.characters.toList();
+        final azureLetterCount = (characters.length + 1) ~/ 2;
+        for (var letterIndex = 0;
+            letterIndex < characters.length;
+            letterIndex++) {
+          spans.add(TextSpan(
+            text: characters[letterIndex],
             style: TextStyle(
-              color: textColor,
+              color: letterIndex < azureLetterCount ? azureColor : sttColor,
               fontWeight: FontWeight.w600,
             ),
+          ));
+        }
+      } else {
+        final color = hasAzure
+            ? azureColor
+            : hasStt
+                ? sttColor
+                : _statusColor(VoiceWordStatus.unverified);
+        spans.add(TextSpan(
+          text: word.text,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w600,
           ),
-        ),
-      ));
+        ));
+      }
+
       if (index != words.length - 1) {
         spans.add(const TextSpan(text: ' '));
       }
