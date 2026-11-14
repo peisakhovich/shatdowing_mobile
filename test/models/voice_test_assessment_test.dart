@@ -133,6 +133,45 @@ void main() {
       expect(result.alignmentWarnings, isNotEmpty);
     });
 
+    test('rejects an incomplete server alignment instead of showing partial colors', () {
+      final result = VoiceTestAssessment.fromJson(
+        referenceText: 'Ja lubię kawę.',
+        json: {
+          'standard_recognition': {
+            'success': true,
+            'recognized_text': 'Ja lubię kawę',
+          },
+          'comparison': {
+            'counts': {
+              'matches': 2,
+              'substitutions': 0,
+              'omissions': 0,
+              'insertions': 0,
+            },
+            'alignment': [
+              {'type': 'match', 'reference_word': 'Ja', 'recognized_word': 'Ja'},
+              {'type': 'match', 'reference_word': 'lubię', 'recognized_word': 'lubię'},
+            ],
+          },
+          'words': [
+            {'word': 'Ja', 'error_type': 'None', 'accuracy_score': 99},
+            {'word': 'lubię', 'error_type': 'None', 'accuracy_score': 98},
+            {'word': 'kawę.', 'error_type': 'None', 'accuracy_score': 97},
+          ],
+        },
+      );
+
+      expect(result.comparisonAvailable, isFalse);
+      expect(
+        result.referenceWords.every(
+          (word) => word.status == VoiceWordStatus.unverified,
+        ),
+        isTrue,
+      );
+      expect(result.alignmentWarnings, isNotEmpty);
+      expect(result.referenceWords.every((word) => word.accuracy == null), isTrue);
+    });
+
     test('does not fabricate comparison when standard recognition fails', () {
       final result = VoiceTestAssessment.fromJson(
         referenceText: 'Ja lubię kawę.',
