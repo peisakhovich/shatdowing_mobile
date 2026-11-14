@@ -92,26 +92,26 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   String _scoreText(double? value) =>
       value == null ? '—' : '${value.round()}%';
 
-  Color _scoreColor(double? value) {
-    if (value == null) return Colors.grey;
-    if (value >= 90) return Colors.green.shade700;
-    if (value >= 75) return Colors.amber.shade800;
-    return Colors.red.shade700;
-  }
-
-  Widget _scoreRow(String label, double? value) {
-    final color = _scoreColor(value);
+  Widget _scoreRow(String label, double? value, Color color) {
+    final progress = value == null
+        ? 0.0
+        : value.clamp(0.0, 100.0).toDouble() / 100.0;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Expanded(child: Text(label)),
-          Container(
-            width: 9,
-            height: 9,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          SizedBox(width: 104, child: Text(label)),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 7,
+                color: color,
+                backgroundColor: color.withValues(alpha: 0.13),
+              ),
+            ),
           ),
-          const SizedBox(width: 9),
           SizedBox(
             width: 48,
             child: Text(
@@ -132,13 +132,13 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         child: Column(
           children: [
-            _scoreRow('Произношение', assessment.pronunciation),
+            _scoreRow('Произношение', assessment.pronunciation, Colors.blue.shade700),
             const Divider(height: 1),
-            _scoreRow('Точность', assessment.accuracy),
+            _scoreRow('Точность', assessment.accuracy, Colors.green.shade700),
             const Divider(height: 1),
-            _scoreRow('Беглость', assessment.fluency),
+            _scoreRow('Беглость', assessment.fluency, Colors.deepPurple.shade400),
             const Divider(height: 1),
-            _scoreRow('Полнота', assessment.completeness),
+            _scoreRow('Полнота', assessment.completeness, Colors.deepOrange.shade600),
           ],
         ),
       ),
@@ -331,7 +331,14 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
           children: [
             Text(title, style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 5),
-            Text(text.isEmpty ? 'Текст не получен.' : text),
+            Text(
+              text.isEmpty ? 'Текст не получен.' : text,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.blue.shade700,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+            ),
           ],
         ),
       ),
@@ -438,7 +445,14 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                       if (_phase == _DialogPhase.result && _assessment != null) ...[
                         Text('Результаты',
                             style: Theme.of(context).textTheme.titleLarge),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Оценка произношения — Azure Pronunciation Assessment',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                        const SizedBox(height: 6),
                         _scoresTable(_assessment!),
                         const SizedBox(height: 8),
                         Card(
@@ -470,7 +484,11 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                           _legend(Colors.deepPurple, 'Замена'),
                           _legend(Colors.red, 'Пропуск'),
                         ]),
-                        _wordStatistics(_assessment!),
+                        if (_assessment!.comparisonAvailable)
+                          _transcriptCard(
+                            title: 'Обычное распознавание (STT)',
+                            text: _assessment!.recognizedText,
+                          ),
                         if (!_assessment!.comparisonAvailable)
                           Padding(
                             padding: const EdgeInsets.only(top: 10),
@@ -483,17 +501,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                               ),
                             ),
                           ),
-                        if (_assessment!.comparisonAvailable) ...[
-                          _transcriptCard(
-                            title: 'Обычное распознавание (STT)',
-                            text: _assessment!.recognizedText,
-                          ),
-                        ],
-                        if (_assessment!.azureRecognizedText.isNotEmpty)
-                          _transcriptCard(
-                            title: 'Распознавание Azure Pronunciation Assessment',
-                            text: _assessment!.azureRecognizedText,
-                          ),
+                        _wordStatistics(_assessment!),
                         if (_assessment!.insertions.isNotEmpty) ...[
                           const SizedBox(height: 12),
                           Text('Лишние слова',
