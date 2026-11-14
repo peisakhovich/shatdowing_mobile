@@ -177,7 +177,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
     VoiceWordStatus.mispronunciation => const Color.fromARGB(255, 53, 193, 7),
     VoiceWordStatus.substitution => Colors.deepPurple.shade700,
     VoiceWordStatus.omission => Colors.red.shade700,
-    VoiceWordStatus.unverified => const Color.fromARGB(255, 51, 145, 19),
+    VoiceWordStatus.unverified => const Color.fromARGB(255, 53, 193, 7),
   };
 
   String _statusLabel(VoiceWordStatus status) => switch (status) {
