@@ -12,7 +12,11 @@ enum VoiceWordStatus {
 
 class VoiceWordResult {
   final String text;
+  /// Structural status from independent standard Speech-to-Text comparison.
   final VoiceWordStatus status;
+
+  /// Independent Azure Pronunciation Assessment status.
+  final VoiceWordStatus azureStatus;
   final double? accuracy;
   final bool mispronounced;
   final String? recognizedWord;
@@ -23,6 +27,7 @@ class VoiceWordResult {
   const VoiceWordResult({
     required this.text,
     required this.status,
+    this.azureStatus = VoiceWordStatus.unverified,
     this.accuracy,
     this.mispronounced = false,
     this.recognizedWord,
@@ -333,7 +338,7 @@ class VoiceTestAssessment {
       recognizedTokens.clear();
     }
 
-    if (rawAzureWords is List && comparisonAvailable) {
+    if (rawAzureWords is List) {
       var nextReferenceIndex = 0;
       for (final raw in rawAzureWords) {
         if (raw is! Map) continue;
@@ -378,17 +383,19 @@ class VoiceTestAssessment {
 
         final existing = referenceResults[matchedIndex];
         final isMispronounced = errorType == 'mispronunciation';
-        final azureStatus = isMispronounced &&
-                existing.status == VoiceWordStatus.correct
-            ? VoiceWordStatus.mispronunciation
-            : existing.status;
+        final azureStatus = switch (errorType) {
+          'none' => VoiceWordStatus.correct,
+          'mispronunciation' => VoiceWordStatus.mispronunciation,
+          'omission' => VoiceWordStatus.omission,
+          _ => VoiceWordStatus.unverified,
+        };
 
-        // Structural comparison status remains authoritative.
+        // Keep Azure and STT results independent. Neither assessment
+        // overwrites the status produced by the other mechanism.
         referenceResults[matchedIndex] = VoiceWordResult(
           text: existing.text,
-          status: existing.status == VoiceWordStatus.omission
-              ? existing.status
-              : azureStatus,
+          status: existing.status,
+          azureStatus: azureStatus,
           accuracy: _asDouble(word['accuracy_score']),
           mispronounced: isMispronounced,
           recognizedWord: existing.recognizedWord,
@@ -522,35 +529,74 @@ class VoiceReferenceText extends StatelessWidget {
     required this.words,
   });
 
+  Color _statusBackground(VoiceWordStatus status) => switch (status) {
+        VoiceWordStatus.correct => Colors.green.withValues(alpha: 0.20),
+        VoiceWordStatus.mispronunciation =>
+          Colors.yellow.withValues(alpha: 0.42),
+        VoiceWordStatus.substitution =>
+          Colors.deepPurple.withValues(alpha: 0.28),
+        VoiceWordStatus.omission => Colors.red.withValues(alpha: 0.22),
+        VoiceWordStatus.unverified => Colors.grey.withValues(alpha: 0.14),
+      };
+
   @override
   Widget build(BuildContext context) {
     final spans = <InlineSpan>[];
+    final textColor = Theme.of(context).colorScheme.onSurface;
 
     for (var index = 0; index < words.length; index++) {
       final word = words[index];
-      final color = switch (word.status) {
-        VoiceWordStatus.correct => Colors.green.shade700,
-        VoiceWordStatus.mispronunciation => Colors.yellow.shade800,
-        VoiceWordStatus.substitution => Colors.deepPurple.shade700,
-        VoiceWordStatus.omission => Colors.red.shade700,
-        VoiceWordStatus.unverified => Colors.grey.shade700,
-      };
-      final background = switch (word.status) {
-        VoiceWordStatus.correct => Colors.green.withValues(alpha: 0.12),
-        VoiceWordStatus.mispronunciation => Colors.yellow.withValues(alpha: 0.28),
-        VoiceWordStatus.substitution => Colors.deepPurple.withValues(alpha: 0.14),
-        VoiceWordStatus.omission => Colors.red.withValues(alpha: 0.12),
-        VoiceWordStatus.unverified => Colors.grey.withValues(alpha: 0.10),
-      };
+      final hasStt = word.status != VoiceWordStatus.unverified;
+      final hasAzure = word.azureStatus != VoiceWordStatus.unverified;
+      final sttColor = _statusBackground(word.status);
+      final azureColor = _statusBackground(word.azureStatus);
 
-      spans.add(TextSpan(
-        text: '${word.text}${index == words.length - 1 ? '' : ' '}',
-        style: TextStyle(
-          color: color,
-          backgroundColor: background,
-          fontWeight: FontWeight.w600,
+      final Decoration decoration;
+      if (hasStt && hasAzure && word.status != word.azureStatus) {
+        decoration = BoxDecoration(
+          borderRadius: BorderRadius.circular(3),
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              azureColor,
+              azureColor,
+              sttColor,
+              sttColor,
+            ],
+            stops: const [0.0, 0.5, 0.5, 1.0],
+          ),
+        );
+      } else {
+        final background = hasStt
+            ? sttColor
+            : hasAzure
+                ? azureColor
+                : _statusBackground(VoiceWordStatus.unverified);
+        decoration = BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(3),
+        );
+      }
+
+      spans.add(WidgetSpan(
+        alignment: PlaceholderAlignment.baseline,
+        baseline: TextBaseline.alphabetic,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+          decoration: decoration,
+          child: Text(
+            word.text,
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
       ));
+      if (index != words.length - 1) {
+        spans.add(const TextSpan(text: ' '));
+      }
     }
 
     return Text.rich(
