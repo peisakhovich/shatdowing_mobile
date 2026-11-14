@@ -92,13 +92,6 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   String _scoreText(double? value) =>
       value == null ? '—' : '${value.round()}%';
 
-  Color _wordScoreColor(double? value) {
-    if (value == null) return Colors.grey;
-    if (value >= 90) return Colors.green.shade700;
-    if (value >= 75) return Colors.amber.shade800;
-    return Colors.red.shade700;
-  }
-
   Widget _scoreRow(String label, double? value, Color color) {
     final progress = value == null
         ? 0.0
@@ -247,6 +240,10 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   Widget _wordStatisticsRow(int number, VoiceWordResult word) {
     final sttColor = _statusColor(word.status);
     final azureColor = _statusColor(word.azureStatus);
+    final accuracyText = word.accuracy == null
+        ? 'Точность Azure: нет оценки'
+        : 'Точность Azure: ${word.accuracy!.round()}/100';
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
@@ -273,6 +270,13 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                   'Azure: ${_statusLabel(word.azureStatus)}',
                   style: TextStyle(color: azureColor, fontSize: 12),
                 ),
+                Text(
+                  accuracyText,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
                 if (word.recognizedWord != null &&
                     word.status == VoiceWordStatus.substitution)
                   Text(
@@ -282,40 +286,6 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          if (word.accuracy != null)
-            SizedBox(
-              width: 104,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _scoreText(word.accuracy),
-                    style: TextStyle(
-                      color: _wordScoreColor(word.accuracy),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  LinearProgressIndicator(
-                    value: word.accuracy!.clamp(0.0, 100.0).toDouble() / 100.0,
-                    color: _wordScoreColor(word.accuracy),
-                    minHeight: 5,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  const SizedBox(height: 2),
-                ],
-              ),
-            )
-          else
-            SizedBox(
-              width: 104,
-              child: Text(
-                word.accuracy != null ? '—' : 'Нет оценки',
-                textAlign: TextAlign.end,
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-            ),
         ],
       ),
     );
