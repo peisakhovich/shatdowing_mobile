@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../localization/localization.dart';
+
 class PlayerControls extends StatelessWidget {
   final Widget child;
   final VoidCallback? onSettings;
@@ -48,7 +50,7 @@ class PlayerControls extends StatelessWidget {
         _buildSideButton(
           context: context,
           icon: Icons.settings,
-          tooltip: 'Настройки',
+          tooltip: lng.t('settingsTitle'),
           onPressed: onSettings,
         ),
         const SizedBox(width: 12),
@@ -58,8 +60,8 @@ class PlayerControls extends StatelessWidget {
           context: context,
           icon: Icons.shuffle,
           tooltip: randomizerEnabled
-              ? 'Randomizer включён'
-              : 'Randomizer выключен',
+              ? lng.t('playerRandomizerOn')
+              : lng.t('playerRandomizerOff'),
           onPressed: onRandomizer,
           selected: randomizerEnabled,
         ),

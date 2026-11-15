@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 
+import 'localization/localization.dart';
 import 'screens/player_screen.dart';
 import 'services/user_session.dart';
 import 'services/bluetooth_audio_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Восстанавливаем пользователя до запуска интерфейса.
+  await lng.initialize();
   await UserSession.instance.restoreSession();
-
-  // Инициализируем Android MediaSession.
   await BluetoothAudioService.initialize();
-
   runApp(const SoundLanguageStudioApp());
 }
 
@@ -21,57 +18,16 @@ class SoundLanguageStudioApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Sound Language Studio',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        useMaterial3: true,
-      ),
-      home: const PlayerScreen(setId: 69),
-    );
-  }
-}
-
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Sound Language Studio')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.headphones, size: 72, color: Colors.teal),
-              const SizedBox(height: 24),
-              const Text(
-                'Изучайте языки на слух',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Выберите готовый набор фраз '
-                'и занимайтесь в удобном темпе.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.library_music),
-                  label: const Text('Мои наборы'),
-                ),
-              ),
-            ],
-          ),
+    return AnimatedBuilder(
+      animation: lng,
+      builder: (context, child) => MaterialApp(
+        title: lng.t('appTitle'),
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+          useMaterial3: true,
         ),
+        home: const PlayerScreen(setId: 69),
       ),
     );
   }

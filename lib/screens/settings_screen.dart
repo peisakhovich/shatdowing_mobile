@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../localization/localization.dart';
 import '../models/user_account.dart';
 import '../models/user_set.dart';
 import '../services/user_session.dart';
@@ -121,8 +122,15 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: lng,
+      builder: (context, child) => _buildLocalizedContent(context),
+    );
+  }
+
+  Widget _buildLocalizedContent(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Настройки')),
+      appBar: AppBar(title: Text(lng.t('settingsTitle'))),
       body: AnimatedBuilder(
         animation: UserSession.instance,
         builder: (context, child) {
@@ -136,12 +144,11 @@ class SettingsScreen extends StatelessWidget {
                   children: [
                     ListTile(
                       leading: const Icon(Icons.account_circle_outlined),
-                      title: const Text('Учётная запись'),
+                      title: Text(lng.t('settingsAccount')),
                       subtitle: Text(
                         account == null
-                            ? 'Вход не выполнен. Активна гостевая сессия. '
-                                  'Пользователь не определён.'
-                            : 'Вход выполнен: ${account.nickname}',
+                            ? lng.t('settingsGuest')
+                            : lng.t('settingsSignedIn', params: {'nickname': account.nickname}),
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: account == null
@@ -151,15 +158,15 @@ class SettingsScreen extends StatelessWidget {
                     const Divider(height: 1),
                     ListTile(
                       leading: const Icon(Icons.library_music_outlined),
-                      title: const Text('Учебный набор'),
-                      subtitle: const Text('Просмотр и выбор набора'),
+                      title: Text(lng.t('settingsLearningSet')),
+                      subtitle: Text(lng.t('settingsViewSets')),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
                         if (account == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'Сначала необходимо войти в систему.',
+                                lng.t('settingsLoginRequired'),
                               ),
                             ),
                           );
@@ -182,21 +189,21 @@ class SettingsScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Данные пользователя',
+                          lng.t('settingsUserData'),
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 12),
-                        Text('Nickname: ${account.nickname}'),
-                        Text('User ID: ${account.userId}'),
+                        Text('${lng.t('settingsNickname')}: ${account.nickname}'),
+                        Text('${lng.t('settingsUserId')}: ${account.userId}'),
                         if (account.firstName != null)
-                          Text('Имя: ${account.firstName}'),
+                          Text('${lng.t('settingsFirstName')}: ${account.firstName}'),
                         if (account.lastName != null)
-                          Text('Фамилия: ${account.lastName}'),
+                          Text('${lng.t('settingsLastName')}: ${account.lastName}'),
                         const SizedBox(height: 16),
                         OutlinedButton.icon(
                           onPressed: () => _logout(context),
                           icon: const Icon(Icons.logout),
-                          label: const Text('Выйти'),
+                          label: Text(lng.t('settingsLogout')),
                         ),
                       ],
                     ),
@@ -212,15 +219,38 @@ class SettingsScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Текущий учебный набор',
+                        lng.t('settingsCurrentSet'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 12),
-                      Text('Название: $setName'),
+                      Text('${lng.t('settingsName')}: $setName'),
                       const SizedBox(height: 8),
-                      Text('Описание: $setDescription'),
+                      Text('${lng.t('settingsDescription')}: $setDescription'),
                       const SizedBox(height: 8),
-                      Text('ID набора: $setId'),
+                      Text('${lng.t('settingsSetId')}: $setId'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(lng.t('settingsLanguage'))),
+                      AnimatedBuilder(
+                        animation: lng,
+                        builder: (context, child) => DropdownButton<String>(
+                          value: lng.languageCode,
+                          items: Localization.languageNames.entries.map((entry) =>
+                            DropdownMenuItem<String>(value: entry.key, child: Text(entry.value)),
+                          ).toList(),
+                          onChanged: (value) {
+                            if (value != null) lng.setLanguage(value);
+                          },
+                        ),
+                      ),
                     ],
                   ),
                 ),
