@@ -333,29 +333,6 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
     );
   }
 
-  String _localizedErrorMessage() {
-    final code = _result?.errorCode;
-    final message = _result?.errorMessage ?? '';
-    return switch (code) {
-      'cancelled' => lng.t('voiceErrorCancelled'),
-      'service_disposed' => lng.t('voiceErrorServiceClosed'),
-      'permission_denied' => lng.t('voiceErrorMicPermission'),
-      'unsupported_audio_format' => lng.t('voiceErrorWavUnsupported'),
-      'no_speech' => lng.t('voiceErrorNoSpeech'),
-      'empty_recording' => lng.t('voiceErrorEmptyRecording'),
-      'recording_error' => lng.t('voiceErrorRecording', params: {
-          'error': message.replaceFirst('Ошибка записи с микрофона: ', ''),
-        }),
-      'invalid_request' => lng.t('voiceErrorInvalidRequest'),
-      'request_timeout' => lng.t('voiceErrorRequestTimeout'),
-      'network_error' => lng.t('voiceErrorNetwork'),
-      'invalid_assessment_response' => lng.t('voiceErrorInvalidResponse'),
-      'assessment_error' => lng.t('voiceErrorGeneric', params: {
-          'error': message.replaceFirst('Не удалось проверить произношение: ', ''),
-        }),
-      _ => message.isNotEmpty ? message : lng.t('voiceCheckFailed'),
-    };
-  }
 
   @override
   Widget build(BuildContext context) {
