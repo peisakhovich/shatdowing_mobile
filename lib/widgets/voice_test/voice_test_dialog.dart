@@ -359,6 +359,13 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: lng,
+      builder: (context, child) => _buildLocalizedContent(context),
+    );
+  }
+
+  Widget _buildLocalizedContent(BuildContext context) {
     final busy =
         _phase == _DialogPhase.recording || _phase == _DialogPhase.processing;
     return PopScope(
