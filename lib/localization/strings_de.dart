@@ -145,6 +145,4 @@ const Map<String, String> stringsDE = {
   'voiceErrorGeneric': "Aussprache konnte nicht bewertet werden: {error}",
   'settingsNickname': "Nickname",
   'settingsUserId': "Benutzer-ID",
-  'playerRandomizerOn': "Zufallswiedergabe aktiviert",
-  'playerRandomizerOff': "Zufallswiedergabe deaktiviert",
 };
