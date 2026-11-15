@@ -145,6 +145,4 @@ const Map<String, String> stringsEN = {
   'voiceErrorGeneric': "Could not assess pronunciation: {error}",
   'settingsNickname': "Nickname",
   'settingsUserId': "User ID",
-  'playerRandomizerOn': "Randomizer enabled",
-  'playerRandomizerOff': "Randomizer disabled",
 };
