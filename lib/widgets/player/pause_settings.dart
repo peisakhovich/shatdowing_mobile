@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../localization/localization.dart';
+
 class PauseSettings extends StatelessWidget {
   final double pauseBeforeTranslationFactor;
   final int pauseBeforeTranslationMs;
@@ -37,8 +39,8 @@ class PauseSettings extends StatelessWidget {
   Widget build(BuildContext context) {
     return ExpansionTile(
       tilePadding: EdgeInsets.zero,
-      title: const Text('Настройки воспроизведения'),
-      subtitle: const Text('Паузы и количество повторов'),
+      title: Text(lng.t('pauseTitle')),
+      subtitle: Text(lng.t('pauseSubtitle')),
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
@@ -46,7 +48,7 @@ class PauseSettings extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Перед переводом  '
+                '${lng.t('pauseBeforeTranslation')}  '
                 '${pauseBeforeTranslationFactor.toStringAsFixed(2)}x'
                 '$pauseBeforeTranslationMs='
                 '$effectivePauseBeforeTranslationMs ms',
@@ -64,7 +66,7 @@ class PauseSettings extends StatelessWidget {
               ),
               Row(
                 children: [
-                  const Expanded(child: Text('Между предложениями')),
+                  Expanded(child: Text(lng.t('pauseBetweenSentences'))),
                   Text(
                     '$pauseBetweenSentencesMs ms',
                     style: Theme.of(context).textTheme.titleSmall,
@@ -87,7 +89,7 @@ class PauseSettings extends StatelessWidget {
               ),
               Row(
                 children: [
-                  const Expanded(child: Text('Множитель повторов')),
+                  Expanded(child: Text(lng.t('pauseRepeatMultiplier'))),
                   Text(
                     '${repeatMultiplier}x',
                     style: Theme.of(context).textTheme.titleSmall,
