@@ -145,4 +145,11 @@ const Map<String, String> stringsPL = {
   'voiceErrorGeneric': "Nie udało się ocenić wymowy: {error}",
   'settingsNickname': "Nazwa użytkownika",
   'settingsUserId': "ID użytkownika",
+  'playerEmptySetError': "Zestaw nie zawiera elementów.",
+  'playerApiEmptySetError': "API zwróciło zestaw bez elementów.",
+  'playerItemNotLoaded': "Element zestawu nie został jeszcze załadowany.",
+  'playerUnknownPauseSource': "Nieznane źródło pauzy: {source}",
+  'playerMissingAudio': "Brak audio dla elementu {item} ({type}).",
+  'playerEmptyMp3': "Serwer zwrócił pusty plik MP3 dla elementu {item} ({type}).",
+  'playerUnknownAudioSource': "Nieznane źródło audio: {source}",
 };
