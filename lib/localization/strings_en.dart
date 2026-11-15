@@ -98,7 +98,7 @@ const Map<String, String> stringsEN = {
   'voiceStatusOmission': "Omission",
   'voiceStatusUnverified': "Not assessed",
   'voiceRecognizedAs': "Recognized as: {word}",
-  'voiceSttConfidence': "STT confidence: {value}",
+  'voiceSttConfidence': "STT Confidence: {value}",
   'voiceAzureAccuracy': "Azure accuracy: {value}",
   'voiceAzureNoWordScores': "Azure did not return individual accuracy scores for words. Structural matches and text errors are provided separately by server-side comparison.",
   'voiceNoAzureAccuracy': "Azure accuracy: not assessed",
@@ -143,4 +143,8 @@ const Map<String, String> stringsEN = {
   'voiceErrorNetwork': "No connection to the pronunciation assessment server.",
   'voiceErrorInvalidResponse': "The server returned no pronunciation scores.",
   'voiceErrorGeneric': "Could not assess pronunciation: {error}",
+  'settingsNickname': "Nickname",
+  'settingsUserId': "User ID",
+  'playerRandomizerOn': "Randomizer enabled",
+  'playerRandomizerOff': "Randomizer disabled",
 };
