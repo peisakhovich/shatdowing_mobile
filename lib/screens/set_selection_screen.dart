@@ -42,6 +42,13 @@ class _SetSelectionScreenState extends State<SetSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: lng,
+      builder: (context, child) => _buildLocalizedContent(context),
+    );
+  }
+
+  Widget _buildLocalizedContent(BuildContext context) {
     final account = UserSession.instance.account;
 
     return Scaffold(
