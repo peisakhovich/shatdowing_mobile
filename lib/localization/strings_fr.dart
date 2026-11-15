@@ -145,6 +145,4 @@ const Map<String, String> stringsFR = {
   'voiceErrorGeneric': "Impossible d’évaluer la prononciation : {error}",
   'settingsNickname': "Nom d’utilisateur",
   'settingsUserId': "ID utilisateur",
-  'playerRandomizerOn': "Lecture aléatoire activée",
-  'playerRandomizerOff': "Lecture aléatoire désactivée",
 };
