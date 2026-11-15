@@ -94,7 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   enabled: !_isLoading,
                   textInputAction: TextInputAction.next,
                   autocorrect: false,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: lng.t('loginNickname'),
                     prefixIcon: Icon(Icons.person_outline),
                     border: OutlineInputBorder(),
