@@ -893,7 +893,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (locale == null || locale.trim().isEmpty) {
       if (mounted && generation == _playbackGeneration) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(lng.t('playerNoLocale')), 
           ),
         );
@@ -1261,7 +1261,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             children: [
               DropdownButtonFormField<String>(
                 initialValue: scenario.key,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: lng.t('playerScenario'),
                   border: OutlineInputBorder(),
                 ),
