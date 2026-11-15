@@ -78,7 +78,7 @@ class PauseSettings extends StatelessWidget {
                 max: _maxBetweenSentencesMs.toDouble(),
                 divisions: _maxBetweenSentencesMs ~/ _betweenSentencesStepMs,
                 value: pauseBetweenSentencesMs.toDouble(),
-                label: '$pauseBetweenSentencesMs мс',
+                label: '$pauseBetweenSentencesMs ms',
                 onChanged: (value) {
                   final newValue =
                       (value / _betweenSentencesStepMs).round() *
