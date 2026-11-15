@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../localization/localization.dart';
 import '../../models/voice_test_assessment.dart';
 import '../../services/voice_test_service.dart';
 
@@ -132,21 +133,21 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
         child: Column(
           children: [
             _scoreRow(
-              'Произношение',
+              lng.t('voicePronunciation'),
               assessment.pronunciation,
               Colors.blue.shade700,
             ),
             const Divider(height: 1),
-            _scoreRow('Точность', assessment.accuracy, Colors.green.shade900),
+            _scoreRow(lng.t('voiceAccuracy'), assessment.accuracy, Colors.green.shade900),
             const Divider(height: 1),
             _scoreRow(
-              'Беглость',
+              lng.t('voiceFluency'),
               assessment.fluency,
               Colors.deepPurple.shade400,
             ),
             const Divider(height: 1),
             _scoreRow(
-              'Полнота',
+              lng.t('voiceCompleteness'),
               assessment.completeness,
               Colors.deepOrange.shade600,
             ),
@@ -182,11 +183,11 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
 
 
   String _statusLabel(VoiceWordStatus status) => switch (status) {
-    VoiceWordStatus.correct => 'Совпадение',
-    VoiceWordStatus.mispronunciation => 'Ошибка произношения',
-    VoiceWordStatus.substitution => 'Замена другим словом',
-    VoiceWordStatus.omission => 'Пропуск слова',
-    VoiceWordStatus.unverified => 'Нет оценки',
+    VoiceWordStatus.correct => lng.t('voiceStatusCorrect'),
+    VoiceWordStatus.mispronunciation => lng.t('voiceStatusMispronunciation'),
+    VoiceWordStatus.substitution => lng.t('voiceStatusSubstitution'),
+    VoiceWordStatus.omission => lng.t('voiceStatusOmission'),
+    VoiceWordStatus.unverified => lng.t('voiceStatusUnverified'),
   };
 
   Widget _wordStatistics(VoiceTestAssessment assessment) {
@@ -195,15 +196,15 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 14),
         childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-        title: const Text('Сравнение по словам'),
+        title: Text(lng.t('voiceWordComparison')),
         subtitle: assessment.comparisonAvailable
             ? Text(
-                'Совпадения: ${assessment.correctCount} · '
-                'Замены: ${assessment.substitutionCount} · '
-                'Пропуски: ${assessment.omissionCount} · '
-                'Лишние: ${assessment.insertionCount}',
+                '${lng.t('voiceMatches', params: {'count': assessment.correctCount})} · '
+                '${lng.t('voiceSubstitutions', params: {'count': assessment.substitutionCount})} · '
+                '${lng.t('voiceOmissions', params: {'count': assessment.omissionCount})} · '
+                '${lng.t('voiceInsertions', params: {'count': assessment.insertionCount})}',
               )
-            : const Text('Серверное сравнение текста недоступно'),
+            : Text(lng.t('voiceServerComparisonUnavailable')),
         children: [
           const Divider(height: 1),
           const SizedBox(height: 6),
@@ -214,7 +215,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Лишние слова (${assessment.insertions.length})',
+                lng.t('voiceExtraWordsTitle', params: {'count': assessment.insertions.length}),
                 style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
@@ -233,7 +234,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                     Expanded(child: Text(insertion.text)),
                     if (insertion.confidence != null)
                       Text(
-                        'Уверенность STT: ${_scoreText(insertion.confidence! * 100)}',
+                        lng.t('voiceSttConfidence', params: {'value': _scoreText(insertion.confidence! * 100)}),
                       ),
                   ],
                 ),
@@ -243,9 +244,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
-                'Azure не вернул индивидуальные оценки точности для слов. '
-                'Структурные совпадения и ошибки текста поступают отдельно '
-                'из серверного сравнения.',
+                lng.t('voiceAzureNoWordScores'),
                 style: TextStyle(fontSize: 12),
               ),
             ),
@@ -258,8 +257,8 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
     final sttColor = _statusColor(word.status);
     final azureColor = _statusColor(word.azureStatus);
     final accuracyText = word.accuracy == null
-        ? 'Точность Azure: нет оценки'
-        : 'Точность Azure: ${word.accuracy!.round()}/100';
+        ? lng.t('voiceNoAzureAccuracy')
+        : lng.t('voiceAzureAccuracy', params: {'value': '${word.accuracy!.round()}/100'});
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
@@ -299,7 +298,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                 if (word.recognizedWord != null &&
                     word.status == VoiceWordStatus.substitution)
                   Text(
-                    'Распознано: ${word.recognizedWord}',
+                    lng.t('voiceRecognizedAs', params: {'word': word.recognizedWord}),
                     style: const TextStyle(fontSize: 12),
                   ),
               ],
@@ -321,7 +320,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
             Text(title, style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 5),
             Text(
-              text.isEmpty ? 'Текст не получен.' : text,
+              text.isEmpty ? lng.t('voiceTextNotReceived') : text,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: Colors.blue.shade700,
                 fontWeight: FontWeight.w600,
@@ -356,7 +355,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                   children: [
                     const Expanded(
                       child: Text(
-                        'Результаты проверки произношения',
+                        lng.t('voiceTitle'),
                         style: TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w600,
@@ -367,7 +366,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
                         icon: const Icon(Icons.close),
-                        tooltip: 'Закрыть',
+                        tooltip: lng.t('voiceClose'),
                       ),
                   ],
                 ),
@@ -381,7 +380,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                     children: [
                       if (_phase != _DialogPhase.result) ...[
                         Text(
-                          'Произнесите фразу:',
+                          lng.t('voiceSayPhrase'),
                           style: Theme.of(context).textTheme.labelLarge,
                         ),
                         const SizedBox(height: 8),
@@ -393,14 +392,12 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         const SizedBox(height: 20),
                       ],
                       if (_phase == _DialogPhase.ready) ...[
-                        const Text(
-                          'Нажмите «Начать запись» и произнесите фразу естественно.',
-                        ),
+                        Text(lng.t('voiceStartInstruction')),
                         const SizedBox(height: 16),
                         FilledButton.icon(
                           onPressed: _startRecording,
                           icon: const Icon(Icons.mic),
-                          label: const Text('Начать запись'),
+                          label: Text(lng.t('voiceStart')),
                         ),
                       ],
                       if (_phase == _DialogPhase.recording) ...[
@@ -415,14 +412,14 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         const LinearProgressIndicator(),
                         const SizedBox(height: 12),
                         const Text(
-                          'Идёт запись. Она завершится после паузы или по кнопке.',
+                          lng.t('voiceRecording'),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
                         FilledButton.icon(
                           onPressed: _stopRecording,
                           icon: const Icon(Icons.stop),
-                          label: const Text('Завершить запись'),
+                          label: Text(lng.t('voiceStop')),
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.red,
                           ),
@@ -432,7 +429,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         const Center(child: CircularProgressIndicator()),
                         const SizedBox(height: 14),
                         const Text(
-                          'Отправка записи и оценка произношения…',
+                          lng.t('voiceProcessing'),
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -440,7 +437,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                           _assessment != null) ...[
                         const SizedBox(height: 2),
                         Text(
-                          'Оценка произношения — Azure Pronunciation Assessment',
+                          lng.t('voiceAzureAssessment'),
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: Theme.of(context)
@@ -452,7 +449,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         _scoresTable(_assessment!),
                         const SizedBox(height: 8),
                         Text(
-                          'Отклонения от эталонной фразы',
+                          lng.t('voiceDeviations'),
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 6),
@@ -464,23 +461,23 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                           children: [
                             _legend(
                               const Color.fromARGB(255, 16, 107, 66),
-                              'Совпадение',
+                              lng.t('voiceLegendMatch'),
                             ),
                             _legend(
                               const Color.fromARGB(255, 53, 193, 7),
                               'Azure',
                             ),
-                            _legend(Colors.deepPurple, 'STT: замена'),
-                            _legend(Colors.red, 'Пропуск'),
+                            _legend(Colors.deepPurple, lng.t('voiceLegendSubstitution')),
+                            _legend(Colors.red, lng.t('voiceLegendOmission')),
                           ],
                         ),
                         Text(
-                          'В смешанном слове первая половина букв окрашена по оценке Azure, вторая — по оценке STT.',
+                          lng.t('voiceMixedLegend'),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         if (_assessment!.comparisonAvailable)
                           _transcriptCard(
-                            title: 'Обычное распознавание (STT)',
+                            title: lng.t('voiceStandardRecognition'),
                             text: _assessment!.recognizedText,
                           ),
                         if (!_assessment!.comparisonAvailable)
@@ -488,8 +485,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                             padding: const EdgeInsets.only(top: 10),
                             child: Text(
                               _assessment!.comparisonError ??
-                                  'Дополнительное распознавание текста не удалось. '
-                                      'Оценки Azure сохранены, но сравнение фразы недоступно.',
+                                  lng.t('voiceExtraRecognitionFailed'),
                               style: TextStyle(
                                 color: Theme.of(context).colorScheme.error,
                               ),
@@ -505,7 +501,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Итоговое заключение',
+                                  lng.t('voiceConclusion'),
                                   style: Theme.of(context)
                                       .textTheme
                                       .titleMedium,
@@ -521,13 +517,11 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         if (_assessment!.insertions.isNotEmpty) ...[
                           const SizedBox(height: 12),
                           Text(
-                            'Лишние слова',
+                            lng.t('voiceExtraWords'),
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            'Эти слова распознаны, но отсутствуют в эталоне.',
-                          ),
+                          Text(lng.t('voiceExtraWordsDescription')),
                           const SizedBox(height: 5),
                           Wrap(
                             spacing: 6,
@@ -551,14 +545,14 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         const SizedBox(height: 8),
                         Text(
                           _result?.errorMessage ??
-                              'Не удалось выполнить проверку.',
+                              lng.t('voiceCheckFailed'),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
                         OutlinedButton.icon(
                           onPressed: _startRecording,
                           icon: const Icon(Icons.refresh),
-                          label: const Text('Повторить запись'),
+                          label: Text(lng.t('voiceRetryRecording')),
                         ),
                       ],
                     ],
@@ -575,7 +569,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                           child: OutlinedButton.icon(
                             onPressed: _startRecording,
                             icon: const Icon(Icons.refresh),
-                            label: const Text('Повторить'),
+                            label: Text(lng.t('voiceRetry')),
                           ),
                         ),
                       if (_phase == _DialogPhase.result)
@@ -583,7 +577,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                       Expanded(
                         child: FilledButton(
                           onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('Закрыть'),
+                          child: Text(lng.t('voiceClose')),
                         ),
                       ),
                     ],
