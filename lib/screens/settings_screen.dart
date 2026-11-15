@@ -122,6 +122,13 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: lng,
+      builder: (context, child) => _buildLocalizedContent(context),
+    );
+  }
+
+  Widget _buildLocalizedContent(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(lng.t('settingsTitle'))),
       body: AnimatedBuilder(
