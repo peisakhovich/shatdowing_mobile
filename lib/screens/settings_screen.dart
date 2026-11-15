@@ -193,8 +193,8 @@ class SettingsScreen extends StatelessWidget {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 12),
-                        Text('Nickname: ${account.nickname}'),
-                        Text('User ID: ${account.userId}'),
+                        Text('${lng.t('settingsNickname')}: ${account.nickname}'),
+                        Text('${lng.t('settingsUserId')}: ${account.userId}'),
                         if (account.firstName != null)
                           Text('${lng.t('settingsFirstName')}: ${account.firstName}'),
                         if (account.lastName != null)
