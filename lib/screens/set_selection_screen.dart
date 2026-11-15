@@ -55,7 +55,7 @@ class _SetSelectionScreenState extends State<SetSelectionScreen> {
       appBar: AppBar(title: Text(lng.t('setsTitle'))),
       body: account == null
           ? const Center(
-              child: Text('Для выбора набора необходимо войти в систему.'),
+              child: Text(lng.t('setsLoginRequired')),
             )
           : FutureBuilder<List<UserSet>>(
               future: _setsFuture,
@@ -90,7 +90,7 @@ class _SetSelectionScreenState extends State<SetSelectionScreen> {
 
                 if (sets.isEmpty) {
                   return const Center(
-                    child: Text('У пользователя пока нет учебных наборов.'),
+                    child: Text(lng.t('setsEmpty')),
                   );
                 }
 
