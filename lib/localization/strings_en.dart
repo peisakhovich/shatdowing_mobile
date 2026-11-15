@@ -145,4 +145,11 @@ const Map<String, String> stringsEN = {
   'voiceErrorGeneric': "Could not assess pronunciation: {error}",
   'settingsNickname': "Nickname",
   'settingsUserId': "User ID",
+  'playerEmptySetError': "The learning set contains no items.",
+  'playerApiEmptySetError': "The API returned a learning set without items.",
+  'playerItemNotLoaded': "The learning item has not been loaded yet.",
+  'playerUnknownPauseSource': "Unknown pause source: {source}",
+  'playerMissingAudio': "Audio is missing for item {item} ({type}).",
+  'playerEmptyMp3': "The server returned an empty MP3 for item {item} ({type}).",
+  'playerUnknownAudioSource': "Unknown audio source: {source}",
 };
