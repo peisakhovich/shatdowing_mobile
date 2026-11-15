@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../localization/localization.dart';
 import '../models/user_set.dart';
 import '../services/api_client.dart';
 import '../services/user_session.dart';
@@ -44,7 +45,7 @@ class _SetSelectionScreenState extends State<SetSelectionScreen> {
     final account = UserSession.instance.account;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Выбор учебного набора')),
+      appBar: AppBar(title: Text(lng.t('setsTitle'))),
       body: account == null
           ? const Center(
               child: Text('Для выбора набора необходимо войти в систему.'),
@@ -65,15 +66,12 @@ class _SetSelectionScreenState extends State<SetSelectionScreen> {
                         children: [
                           const Icon(Icons.error_outline, size: 48),
                           const SizedBox(height: 16),
-                          const Text(
-                            'Не удалось загрузить учебные наборы.',
-                            textAlign: TextAlign.center,
-                          ),
+                          Text(lng.t('setsLoadError'), textAlign: TextAlign.center),
                           const SizedBox(height: 16),
                           FilledButton.icon(
                             onPressed: _retryLoading,
                             icon: const Icon(Icons.refresh),
-                            label: const Text('Повторить'),
+                            label: Text(lng.t('commonRetry')),
                           ),
                         ],
                       ),
@@ -107,8 +105,7 @@ class _SetSelectionScreenState extends State<SetSelectionScreen> {
                               Text(set.setDescription),
                             const SizedBox(height: 4),
                             Text(
-                              'Набор № ${set.setIndex} · '
-                              '${set.itemsCount} фраз',
+                              lng.t('setsCount', params: {'index': set.setIndex, 'count': set.itemsCount}),
                             ),
                           ],
                         ),
