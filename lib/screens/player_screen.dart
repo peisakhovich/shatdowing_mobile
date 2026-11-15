@@ -1185,6 +1185,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: lng,
+      builder: (context, child) => _buildLocalizedContent(context),
+    );
+  }
+
+  Widget _buildLocalizedContent(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(title: Text(lng.t('playerTitle'))),
