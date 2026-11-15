@@ -40,7 +40,7 @@ class Localization extends ChangeNotifier {
   String t(String key, {Map<String, Object?> params = const {}}) {
     var value = _dictionaries[_languageCode]?[key] ?? stringsEN[key] ?? '[$key]';
     for (final entry in params.entries) {
-      value = value.replaceAll('{' + entry.key + '}', entry.value?.toString() ?? '');
+      value = value = value.replaceAll('{${entry.key}}', entry.value?.toString() ?? '');
     }
     return value;
   }
