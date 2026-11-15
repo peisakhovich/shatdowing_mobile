@@ -329,7 +329,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       learningSet ??= await _downloadAndCacheLearningSet();
 
       if (learningSet.items.isEmpty) {
-        throw const FormatException('Учебный набор не содержит элементов.');
+        throw FormatException(lng.t('playerEmptySetError'));
       }
 
       if (!mounted) return;
@@ -445,7 +445,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final apiSet = await _apiClient.getLearningSet(_activeSetId);
 
     if (apiSet.items.isEmpty) {
-      throw const FormatException('API вернул набор без учебных элементов.');
+      throw FormatException(lng.t('playerApiEmptySetError'));
     }
 
     final totalAudioFiles = apiSet.items.fold<int>(
@@ -765,7 +765,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         final item = _currentItem;
 
         if (item == null) {
-          throw StateError('Учебный элемент ещё не загружен.');
+          throw StateError(lng.t('playerItemNotLoaded'));
         }
 
         if (!_hasTranslation) {
@@ -778,7 +778,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         return Duration(milliseconds: _pauseBetweenSentencesMs);
 
       default:
-        throw FormatException('Неизвестный источник паузы: ${action.source}');
+        throw FormatException(lng.t('playerUnknownPauseSource', params: {'source': action.source}));
     }
   }
 
@@ -799,7 +799,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           : item.translationAudioPath;
 
       if (assetPath == null || assetPath.isEmpty) {
-        throw StateError('Для элемента $itemId отсутствует аудио: $audioType.');
+        throw StateError(lng.t('playerMissingAudio', params: {'item': itemId, 'type': audioType}));
       }
 
       return assetPath;
@@ -827,7 +827,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     if (bytes.isEmpty) {
       throw StateError(
-        'Сервер вернул пустой MP3 для элемента $itemId ($audioType).',
+        lng.t('playerEmptyMp3', params: {'item': itemId, 'type': audioType}),
       );
     }
 
@@ -842,7 +842,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final item = _currentItem;
 
     if (item == null) {
-      throw StateError('Учебный элемент ещё не загружен.');
+      throw StateError(lng.t('playerItemNotLoaded'));
     }
 
     final String audioType;
@@ -858,7 +858,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         break;
 
       default:
-        throw FormatException('Неизвестный источник аудио: ${action.source}');
+        throw FormatException(lng.t('playerUnknownAudioSource', params: {'source': action.source}));
     }
 
     final audioPath = await _getAudioPath(
@@ -886,7 +886,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final item = _currentItem;
 
     if (item == null) {
-      throw StateError('Учебный элемент ещё не загружен.');
+      throw StateError(lng.t('playerItemNotLoaded'));
     }
 
     final locale = item.phraseLocale;
