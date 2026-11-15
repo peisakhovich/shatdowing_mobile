@@ -60,8 +60,8 @@ class PlayerControls extends StatelessWidget {
           context: context,
           icon: Icons.shuffle,
           tooltip: randomizerEnabled
-              ? 'Randomizer ON'
-              : 'Randomizer OFF',
+              ? lng.t('playerRandomizerOn')
+              : lng.t('playerRandomizerOff'),
           onPressed: onRandomizer,
           selected: randomizerEnabled,
         ),
