@@ -145,4 +145,11 @@ const Map<String, String> stringsDE = {
   'voiceErrorGeneric': "Aussprache konnte nicht bewertet werden: {error}",
   'settingsNickname': "Nickname",
   'settingsUserId': "Benutzer-ID",
+  'playerEmptySetError': "Das Lernset enthält keine Elemente.",
+  'playerApiEmptySetError': "Die API hat ein Lernset ohne Elemente zurückgegeben.",
+  'playerItemNotLoaded': "Das Lernelement wurde noch nicht geladen.",
+  'playerUnknownPauseSource': "Unbekannte Pausenquelle: {source}",
+  'playerMissingAudio': "Audiodatei für Element {item} ({type}) fehlt.",
+  'playerEmptyMp3': "Der Server hat eine leere MP3-Datei für Element {item} ({type}) zurückgegeben.",
+  'playerUnknownAudioSource': "Unbekannte Audioquelle: {source}",
 };
