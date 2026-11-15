@@ -98,7 +98,7 @@ const Map<String, String> stringsPL = {
   'voiceStatusOmission': "Pominięcie",
   'voiceStatusUnverified': "Brak oceny",
   'voiceRecognizedAs': "Rozpoznano jako: {word}",
-  'voiceSttConfidence': "Pewność STT: {value}",
+  'voiceSttConfidence': "STT Confidence: {value}",
   'voiceAzureAccuracy': "Dokładność Azure: {value}",
   'voiceAzureNoWordScores': "Azure nie zwrócił indywidualnych ocen dokładności słów. Dopasowania strukturalne i błędy tekstu są przekazywane oddzielnie przez porównanie serwerowe.",
   'voiceNoAzureAccuracy': "Dokładność Azure: brak oceny",
@@ -143,4 +143,8 @@ const Map<String, String> stringsPL = {
   'voiceErrorNetwork': "Brak połączenia z serwerem oceny wymowy.",
   'voiceErrorInvalidResponse': "Serwer nie zwrócił ocen wymowy.",
   'voiceErrorGeneric': "Nie udało się ocenić wymowy: {error}",
+  'settingsNickname': "Nazwa użytkownika",
+  'settingsUserId': "ID użytkownika",
+  'playerRandomizerOn': "Losowa kolejność włączona",
+  'playerRandomizerOff': "Losowa kolejność wyłączona",
 };
