@@ -145,4 +145,11 @@ const Map<String, String> stringsRU = {
   'voiceErrorGeneric': "Не удалось проверить произношение: {error}",
   'settingsNickname': "Псевдоним",
   'settingsUserId': "ID пользователя",
+  'playerEmptySetError': "Учебный набор не содержит элементов.",
+  'playerApiEmptySetError': "API вернул набор без учебных элементов.",
+  'playerItemNotLoaded': "Учебный элемент ещё не загружен.",
+  'playerUnknownPauseSource': "Неизвестный источник паузы: {source}",
+  'playerMissingAudio': "Для элемента {item} отсутствует аудио: {type}.",
+  'playerEmptyMp3': "Сервер вернул пустой MP3 для элемента {item} ({type}).",
+  'playerUnknownAudioSource': "Неизвестный источник аудио: {source}",
 };
