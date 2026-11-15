@@ -377,7 +377,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                 padding: const EdgeInsets.fromLTRB(20, 18, 12, 8),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         lng.t('voiceTitle'),
                         style: TextStyle(
@@ -435,7 +435,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                         const SizedBox(height: 8),
                         const LinearProgressIndicator(),
                         const SizedBox(height: 12),
-                        const Text(
+                        Text(
                           lng.t('voiceRecording'),
                           textAlign: TextAlign.center,
                         ),
@@ -452,7 +452,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                       if (_phase == _DialogPhase.processing) ...[
                         const Center(child: CircularProgressIndicator()),
                         const SizedBox(height: 14),
-                        const Text(
+                        Text(
                           lng.t('voiceProcessing'),
                           textAlign: TextAlign.center,
                         ),
