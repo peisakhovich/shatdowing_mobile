@@ -85,7 +85,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // Состояние отображения загрузки учебного набора и MP3.
   String _downloadSetName = '';
-  String _downloadCurrentFile = 'Preparing download…';
+  String _downloadCurrentFile = 'Checking local files…';
   int _downloadCompleted = 0;
   int _downloadTotal = 0;
 
