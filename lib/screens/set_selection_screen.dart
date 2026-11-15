@@ -54,7 +54,7 @@ class _SetSelectionScreenState extends State<SetSelectionScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(lng.t('setsTitle'))),
       body: account == null
-          ? const Center(
+          ? Center(
               child: Text(lng.t('setsLoginRequired')),
             )
           : FutureBuilder<List<UserSet>>(
@@ -89,7 +89,7 @@ class _SetSelectionScreenState extends State<SetSelectionScreen> {
                 final sets = snapshot.data ?? [];
 
                 if (sets.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Text(lng.t('setsEmpty')),
                   );
                 }
