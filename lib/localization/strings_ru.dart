@@ -145,6 +145,4 @@ const Map<String, String> stringsRU = {
   'voiceErrorGeneric': "Не удалось проверить произношение: {error}",
   'settingsNickname': "Псевдоним",
   'settingsUserId': "ID пользователя",
-  'playerRandomizerOn': "Случайный порядок включён",
-  'playerRandomizerOff': "Случайный порядок выключен",
 };
