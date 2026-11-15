@@ -145,6 +145,4 @@ const Map<String, String> stringsPL = {
   'voiceErrorGeneric': "Nie udało się ocenić wymowy: {error}",
   'settingsNickname': "Nazwa użytkownika",
   'settingsUserId': "ID użytkownika",
-  'playerRandomizerOn': "Losowa kolejność włączona",
-  'playerRandomizerOff': "Losowa kolejność wyłączona",
 };
