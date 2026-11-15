@@ -145,4 +145,11 @@ const Map<String, String> stringsFR = {
   'voiceErrorGeneric': "Impossible d’évaluer la prononciation : {error}",
   'settingsNickname': "Nom d’utilisateur",
   'settingsUserId': "ID utilisateur",
+  'playerEmptySetError': "Le jeu d’apprentissage ne contient aucun élément.",
+  'playerApiEmptySetError': "L’API a renvoyé un jeu sans éléments.",
+  'playerItemNotLoaded': "L’élément d’apprentissage n’a pas encore été chargé.",
+  'playerUnknownPauseSource': "Source de pause inconnue : {source}",
+  'playerMissingAudio': "Fichier audio manquant pour l’élément {item} ({type}).",
+  'playerEmptyMp3': "Le serveur a renvoyé un MP3 vide pour l’élément {item} ({type}).",
+  'playerUnknownAudioSource': "Source audio inconnue : {source}",
 };
