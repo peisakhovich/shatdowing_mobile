@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../localization/localization.dart';
 import '../models/user_account.dart';
 import '../services/api_client.dart';
 
@@ -26,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (nickname.isEmpty || password.isEmpty) {
       setState(() {
-        _errorMessage = 'Введите имя пользователя и пароль.';
+        _errorMessage = lng.t('loginNicknameRequired');
       });
       return;
     }
@@ -69,8 +70,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: lng,
+      builder: (context, child) => _buildLocalizedContent(context),
+    );
+  }
+
+  Widget _buildLocalizedContent(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Авторизация')),
+      appBar: AppBar(title: Text(lng.t('loginTitle'))),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -86,8 +94,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   enabled: !_isLoading,
                   textInputAction: TextInputAction.next,
                   autocorrect: false,
-                  decoration: const InputDecoration(
-                    labelText: 'Nickname',
+                  decoration: InputDecoration(
+                    labelText: lng.t('loginNickname'),
                     prefixIcon: Icon(Icons.person_outline),
                     border: OutlineInputBorder(),
                   ),
@@ -104,7 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     }
                   },
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: lng.t('loginPassword'),
                     prefixIcon: const Icon(Icons.lock_outline),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
@@ -140,7 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           height: 22,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Login'),
+                      : Text(lng.t('loginButton')),
                 ),
               ],
             ),

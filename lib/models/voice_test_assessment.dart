@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../localization/localization.dart';
 import 'voice_token_alignment.dart';
 
 enum VoiceWordStatus {
@@ -125,48 +126,40 @@ class VoiceTestAssessment {
   ///
   /// This is a qualitative conclusion, not an averaged or invented score.
   String get integratedConclusion {
+    final score = pronunciation?.toStringAsFixed(1) ?? '';
     if (!comparisonAvailable) {
       final pronunciationText = pronunciation == null
-          ? 'Оценка произношения Azure также отсутствует.'
-          : 'Azure оценил произношение на ${pronunciation!.toStringAsFixed(1)}%.';
-      return 'Текстовое сравнение выполнить не удалось. '
-          '$pronunciationText '
-          'Поэтому соответствие произнесённой фразы заданию пока нельзя '
-          'подтвердить.';
+          ? lng.t('voiceConclusionAzureMissing')
+          : lng.t('voiceConclusionAzureScore', params: {'score': score});
+      return lng.t('voiceConclusionComparisonFailed',
+          params: {'pronunciation': pronunciationText});
     }
 
     final structuralText = structuralErrorCount == 0
-        ? 'Обычное распознавание полностью совпало с эталоном: '
-            '$correctCount слов совпали, замен, пропусков и лишних слов нет.'
-        : 'В текстовом сравнении: $correctCount совпадений, '
-            '$substitutionCount замен, $omissionCount пропусков '
-            'и $insertionCount лишних слов.';
+        ? lng.t('voiceConclusionTextMatch', params: {'count': correctCount})
+        : lng.t('voiceConclusionTextDifferences', params: {
+            'correct': correctCount,
+            'substitutions': substitutionCount,
+            'omissions': omissionCount,
+            'insertions': insertionCount,
+          });
 
     final pronunciationText = pronunciation == null
-        ? 'Azure не предоставил итоговую оценку произношения.'
+        ? lng.t('voiceConclusionAzureMissing')
         : pronunciation! >= 90
-            ? 'Качество произношения по оценке Azure высокое '
-                '(${pronunciation!.toStringAsFixed(1)}%).'
+            ? lng.t('voiceConclusionPronHigh', params: {'score': score})
             : pronunciation! >= 75
-                ? 'Оценка произношения Azure — '
-                    '${pronunciation!.toStringAsFixed(1)}%; есть возможности '
-                    'для улучшения.'
-                : 'Оценка произношения Azure — '
-                    '${pronunciation!.toStringAsFixed(1)}%; произношение '
-                    'требует дополнительной работы.';
+                ? lng.t('voiceConclusionPronMid', params: {'score': score})
+                : lng.t('voiceConclusionPronLow', params: {'score': score});
 
     final pronunciationErrors = mispronunciationCount == 0
         ? ''
-        : ' Azure отдельно отметил ошибки произношения в '
-            '$mispronunciationCount словах.';
-
+        : lng.t('voiceConclusionPronErrors', params: {'count': mispronunciationCount});
     final overallText = structuralErrorCount == 0
-        ? 'Итог: по распознанному тексту задание выполнено точно.'
-        : 'Итог: произнесённая фраза отличается от эталона; '
-            'проверьте перечисленные расхождения.';
+        ? lng.t('voiceConclusionOverallMatch')
+        : lng.t('voiceConclusionOverallDiff');
 
-    return '$structuralText $pronunciationText'
-        '$pronunciationErrors $overallText';
+    return '$structuralText $pronunciationText$pronunciationErrors $overallText';
   }
 
   factory VoiceTestAssessment.fromJson({
