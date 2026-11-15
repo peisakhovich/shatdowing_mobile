@@ -13,7 +13,11 @@ class Localization extends ChangeNotifier {
     'en': stringsEN, 'ru': stringsRU, 'pl': stringsPL, 'de': stringsDE, 'fr': stringsFR,
   };
   static const Map<String, String> languageNames = {
-    'en': 'English', 'ru': 'Русский', 'pl': 'Polski', 'de': 'Deutsch', 'fr': 'Français',
+    'ru': 'Русский',
+    'pl': 'Polski',
+    'en': 'English',
+    'de': 'Deutsch',
+    'fr': 'Français',
   };
 
   String _languageCode = 'en';
