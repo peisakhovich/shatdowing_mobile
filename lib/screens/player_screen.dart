@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../localization/localization.dart';
 import '../services/bluetooth_audio_service.dart';
 import '../models/learning_item.dart';
 import '../models/learning_set.dart';
@@ -84,7 +85,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // Состояние отображения загрузки учебного набора и MP3.
   String _downloadSetName = '';
-  String _downloadCurrentFile = 'Подготовка загрузки…';
+  String _downloadCurrentFile = 'Preparing download…';
   int _downloadCompleted = 0;
   int _downloadTotal = 0;
 
@@ -249,8 +250,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       setState(() {
         _isLoadingSet = true;
         _setError = null;
-        _downloadSetName = 'Проверка учебного набора';
-        _downloadCurrentFile = 'Проверка локальных файлов…';
+        _downloadSetName = lng.t('playerCheckingSet');
+        _downloadCurrentFile = lng.t('playerCheckingFiles');
         _downloadCompleted = 0;
         _downloadTotal = 0;
       });
@@ -300,7 +301,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         if (cachedSet != null && isOwner && cachedSet.setId == _activeSetId) {
           _updateDownloadProgress(
             setName: cachedSet.setName,
-            currentFile: 'Проверка сохранённых аудиофайлов…',
+            currentFile: lng.t('playerCheckingSavedAudio'),
           );
 
           learningSet = await _restoreCachedSetWithAudio(cachedSet);
@@ -316,8 +317,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
           _activeOwnerUserId == null &&
           widget.useDefaultSession) {
         _updateDownloadProgress(
-          setName: 'Стартовый учебный набор',
-          currentFile: 'Загрузка встроенного набора…',
+          setName: lng.t('playerDefaultSet'),
+          currentFile: lng.t('playerLoadingDefault'),
         );
 
         learningSet = await _defaultSessionService.loadDefaultSession();
@@ -359,7 +360,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       setState(() {
         _setError = error.toString();
         _isLoadingSet = false;
-        _downloadCurrentFile = 'Загрузка прервана';
+        _downloadCurrentFile = lng.t('playerDownloadInterrupted');
       });
     }
   }
@@ -438,7 +439,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Future<LearningSet> _downloadAndCacheLearningSetInternal() async {
     _updateDownloadProgress(
-      currentFile: 'Получение списка элементов с сервера…',
+      currentFile: lng.t('playerFetchingItems'),
     );
 
     final apiSet = await _apiClient.getLearningSet(_activeSetId);
@@ -459,7 +460,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     _updateDownloadProgress(
       setName: apiSet.setName,
-      currentFile: 'Подготовка аудиофайлов…',
+      currentFile: lng.t('playerPreparingAudio'),
       completed: 0,
       total: totalAudioFiles,
     );
@@ -469,7 +470,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     for (var index = 0; index < apiSet.items.length; index++) {
       final item = apiSet.items[index];
-      final itemLabel = 'Элемент ${index + 1} из ${apiSet.items.length}';
+      final itemLabel = lng.t('playerItemLabel', params: {'current': index + 1, 'total': apiSet.items.length});
 
       // Сначала проверяем, нет ли уже сохранённого MP3 фразы.
       var phrasePath = await _localSessionStorage.getAudioPath(
@@ -479,7 +480,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
       if (phrasePath == null) {
         _updateDownloadProgress(
-          currentFile: '$itemLabel: загрузка оригинала',
+          currentFile: lng.t('playerDownloadingOriginal', params: {'item': itemLabel}),
           completed: completedAudioFiles,
         );
 
@@ -498,7 +499,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
       completedAudioFiles++;
       _updateDownloadProgress(
-        currentFile: '$itemLabel: оригинал сохранён',
+        currentFile: lng.t('playerOriginalSaved', params: {'item': itemLabel}),
         completed: completedAudioFiles,
       );
 
@@ -514,7 +515,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
         if (translationPath == null) {
           _updateDownloadProgress(
-            currentFile: '$itemLabel: загрузка перевода',
+            currentFile: lng.t('playerDownloadingTranslation', params: {'item': itemLabel}),
             completed: completedAudioFiles,
           );
 
@@ -533,7 +534,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
         completedAudioFiles++;
         _updateDownloadProgress(
-          currentFile: '$itemLabel: перевод сохранён',
+          currentFile: lng.t('playerTranslationSaved', params: {'item': itemLabel}),
           completed: completedAudioFiles,
         );
       }
@@ -566,7 +567,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       currentIndex: 0,
     );
 
-    _updateDownloadProgress(currentFile: 'Сохранение данных набора…');
+    _updateDownloadProgress(currentFile: lng.t('playerSavingSet'));
 
     await _localSessionStorage.saveLearningSet(
       cachedSet,
@@ -574,7 +575,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
 
     _updateDownloadProgress(
-      currentFile: 'Загрузка завершена',
+      currentFile: lng.t('playerDownloadComplete'),
       completed: totalAudioFiles,
     );
 
@@ -893,7 +894,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (mounted && generation == _playbackGeneration) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Для этой фразы не задана языковая локаль.'),
+            content: Text(lng.t('playerNoLocale')), 
           ),
         );
       }
@@ -1073,7 +1074,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     } catch (error) {
       if (mounted && generation == _playbackGeneration) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка воспроизведения: $error')),
+          SnackBar(content: Text(lng.t('playerPlaybackError', params: {'error': error}))),
         );
       }
     } finally {
@@ -1095,7 +1096,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final percent = (_downloadProgress * 100).round();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sound Language Studio')),
+      appBar: AppBar(title: Text(lng.t('playerTitle'))),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -1108,14 +1109,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 const Icon(Icons.cloud_download_outlined, size: 56),
                 const SizedBox(height: 20),
                 Text(
-                  'Загрузка учебного набора',
+                  lng.t('playerLoadingSet'),
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _downloadSetName.isEmpty
-                      ? 'Набор ${widget.setId}'
+                      ? '${lng.t('settingsLearningSet')} ${widget.setId}'
                       : _downloadSetName,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleMedium,
@@ -1129,16 +1130,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 const SizedBox(height: 12),
                 if (hasProgress)
                   Text(
-                    '$_downloadCompleted из $_downloadTotal аудиофайлов '
+                    '${lng.t('playerFiles', params: {'completed': _downloadCompleted, 'total': _downloadTotal})} '
                     '($percent%)',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleMedium,
                   )
                 else
-                  const Text(
-                    'Подключение к серверу…',
-                    textAlign: TextAlign.center,
-                  ),
+                  Text(lng.t('playerConnecting'), textAlign: TextAlign.center),
                 const SizedBox(height: 12),
                 Text(
                   _downloadCurrentFile,
@@ -1146,10 +1144,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Не закрывайте приложение до завершения загрузки.',
-                  textAlign: TextAlign.center,
-                ),
+                Text(lng.t('playerDoNotClose'), textAlign: TextAlign.center),
               ],
             ),
           ),
@@ -1192,18 +1187,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Sound Language Studio')),
+        appBar: AppBar(title: Text(lng.t('playerTitle'))),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_errorMessage != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Sound Language Studio')),
+        appBar: AppBar(title: Text(lng.t('playerTitle'))),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text('Не удалось загрузить конфигурацию:\n$_errorMessage'),
+            child: Text(lng.t('playerConfigError', params: {'error': _errorMessage})),
           ),
         ),
       );
@@ -1215,7 +1210,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     if (_setError != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Sound Language Studio')),
+        appBar: AppBar(title: Text(lng.t('playerTitle'))),
         body: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -1225,18 +1220,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 const Icon(Icons.cloud_off_outlined, size: 48),
                 const SizedBox(height: 16),
                 Text(
-                  'Не удалось загрузить учебный набор:\n$_setError',
+                  lng.t('playerSetError', params: {'error': _setError}),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
                 FilledButton.icon(
                   onPressed: _loadLearningSet,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Повторить загрузку'),
+                  label: Text(lng.t('playerRetryDownload')),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Уже сохранённые аудиофайлы останутся на устройстве.',
+                  lng.t('playerSavedAudioKept'),
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
@@ -1251,7 +1246,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final scenario = _selectedScenario!;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sound Language Studio')),
+      appBar: AppBar(title: Text(lng.t('playerTitle'))),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -1260,7 +1255,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               DropdownButtonFormField<String>(
                 initialValue: scenario.key,
                 decoration: const InputDecoration(
-                  labelText: 'Сценарий',
+                  labelText: lng.t('playerScenario'),
                   border: OutlineInputBorder(),
                 ),
                 items: config.scenarios.entries.map((entry) {
@@ -1297,17 +1292,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Элемент ${_currentItemIndex + 1} / ${_items.length}',
+                lng.t('playerItemCounter', params: {'current': _currentItemIndex + 1, 'total': _items.length}),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               AdaptiveTextWindow(
-                title: 'Оригинал',
+                title: lng.t('playerOriginal'),
                 text: _phraseText,
                 visible: _showTop,
                 baseFontSize: 26,
               ),
               AdaptiveTextWindow(
-                title: 'Перевод',
+                title: lng.t('playerTranslation'),
                 text: _translateText,
                 visible: _showBottom,
                 baseFontSize: 20,
@@ -1340,7 +1335,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   children: [
                     _buildNavigationButton(
                       icon: Icons.first_page,
-                      tooltip: 'В начало',
+                      tooltip: lng.t('playerFirst'),
                       onPressed: _currentItemIndex > 0
                           ? () => _navigateToItem(0)
                           : null,
@@ -1348,7 +1343,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     const SizedBox(width: 6),
                     _buildNavigationButton(
                       icon: Icons.chevron_left,
-                      tooltip: 'Назад',
+                      tooltip: lng.t('playerBack'),
                       onPressed: _currentItemIndex > 0
                           ? () => _navigateToItem(_currentItemIndex - 1)
                           : null,
@@ -1359,7 +1354,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       height: 64,
                       child: IconButton.filled(
                         onPressed: _togglePlayback,
-                        tooltip: _isPlaying ? 'Stop' : 'Play',
+                        tooltip: _isPlaying ? lng.t('playerStop') : lng.t('playerPlay'),
                         padding: EdgeInsets.zero,
                         style: IconButton.styleFrom(
                           shape: const CircleBorder(),
@@ -1373,7 +1368,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     const SizedBox(width: 8),
                     _buildNavigationButton(
                       icon: Icons.chevron_right,
-                      tooltip: 'Вперёд',
+                      tooltip: lng.t('playerForward'),
                       onPressed: _currentItemIndex < _items.length - 1
                           ? () => _navigateToItem(_currentItemIndex + 1)
                           : null,
@@ -1381,7 +1376,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     const SizedBox(width: 6),
                     _buildNavigationButton(
                       icon: Icons.last_page,
-                      tooltip: 'В конец',
+                      tooltip: lng.t('playerLast'),
                       onPressed: _currentItemIndex < _items.length - 1
                           ? () => _navigateToItem(_items.length - 1)
                           : null,
