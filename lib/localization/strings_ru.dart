@@ -98,7 +98,7 @@ const Map<String, String> stringsRU = {
   'voiceStatusOmission': "Пропуск",
   'voiceStatusUnverified': "Нет оценки",
   'voiceRecognizedAs': "Распознано: {word}",
-  'voiceSttConfidence': "Уверенность STT: {value}",
+  'voiceSttConfidence': "STT Confidence: {value}",
   'voiceAzureAccuracy': "Точность Azure: {value}",
   'voiceAzureNoWordScores': "Azure не вернул индивидуальные оценки точности для слов. Структурные совпадения и ошибки текста поступают отдельно из серверного сравнения.",
   'voiceNoAzureAccuracy': "Точность Azure: нет оценки",
@@ -143,4 +143,8 @@ const Map<String, String> stringsRU = {
   'voiceErrorNetwork': "Нет соединения с сервером оценки произношения.",
   'voiceErrorInvalidResponse': "Сервер вернул результат без оценок произношения.",
   'voiceErrorGeneric': "Не удалось проверить произношение: {error}",
+  'settingsNickname': "Псевдоним",
+  'settingsUserId': "ID пользователя",
+  'playerRandomizerOn': "Случайный порядок включён",
+  'playerRandomizerOff': "Случайный порядок выключен",
 };
