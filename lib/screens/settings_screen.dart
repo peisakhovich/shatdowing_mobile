@@ -164,7 +164,7 @@ class SettingsScreen extends StatelessWidget {
                       onTap: () {
                         if (account == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
                                 lng.t('settingsLoginRequired'),
                               ),
