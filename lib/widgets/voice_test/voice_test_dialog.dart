@@ -241,8 +241,8 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
               ),
           ],
           if (assessment.referenceWords.every((word) => word.accuracy == null))
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
               child: Text(
                 lng.t('voiceAzureNoWordScores'),
                 style: TextStyle(fontSize: 12),
