@@ -74,19 +74,19 @@ Speech Test — инструмент практической тренировк
 
 Пользователь получает доступ к учебным наборам, назначенным его учётной записи.
 
-![Выбор учебных наборов](docs/images/screenshots/01-set-selection.svg)
+![Выбор учебных наборов](docs/images/screenshots/01-set-selection.jpg)
 
 ### Shadowing — основной экран тренировки
 
-![Основной экран Shadowing](docs/images/screenshots/02-shadowing-player.svg)
+![Основной экран Shadowing](docs/images/screenshots/02-shadowing-player.jpg)
 
 ### Настройки тренировки
 
-![Настройки аудиотренировки](docs/images/screenshots/03-player-settings.svg)
+![Настройки аудиотренировки](docs/images/screenshots/03-player-settings.jpg)
 
 ### Speech Test
 
-![Проверка и совершенствование навыка говорения](docs/images/screenshots/04-speech-test.svg)
+![Проверка и совершенствование навыка говорения](docs/images/screenshots/04-speech-test.jpg)
 
 ## Архитектура Sound Language Studio
 
