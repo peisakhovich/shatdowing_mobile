@@ -9,6 +9,7 @@ import '../services/local_session_storage.dart';
 import 'login_screen.dart';
 import 'set_selection_screen.dart';
 import 'player_screen.dart';
+import 'about_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   final int setId;
@@ -253,6 +254,22 @@ class SettingsScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('About'),
+                  subtitle: const Text('App information and updates'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const AboutScreen(),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
