@@ -52,9 +52,8 @@ class UpdateService {
     final apkAssets = assets
         .whereType<Map<String, dynamic>>()
         .where(
-          (asset) => (asset['name'] as String? ?? '')
-              .toLowerCase()
-              .endsWith('.apk'),
+          (asset) =>
+              (asset['name'] as String? ?? '').toLowerCase().endsWith('.apk'),
         )
         .toList();
 
@@ -93,8 +92,7 @@ class UpdateService {
       throw Exception('Invalid APK download URL.');
     }
 
-    // OtaUpdate caches its event stream inside the instance.
-    // Create a fresh instance for every download attempt.
+    // Create a fresh OtaUpdate instance for every download attempt.
     return OtaUpdate().execute(
       apkUrl,
       destinationFilename: 'shadowing_mobile_update.apk',
@@ -117,7 +115,10 @@ class UpdateService {
     for (var i = 0; i < length; i++) {
       final a = i < firstParts.length ? firstParts[i] : 0;
       final b = i < secondParts.length ? secondParts[i] : 0;
-      if (a != b) return a.compareTo(b);
+
+      if (a != b) {
+        return a.compareTo(b);
+      }
     }
 
     return 0;
@@ -127,48 +128,7 @@ class UpdateService {
     final normalized = _normalizeVersion(version);
     final core = normalized.split(RegExp(r'[-+]')).first;
 
-    if (!RegExp(r'^\d+(\.\d+)*).hasMatch(core)) {
-      throw FormatException('Unsupported version format: $version');
-    }
-
-    return core.split('.').map(int.parse).toList();
-  }
-}
-
-class UpdateCheckResult {
-  final String currentVersion;
-  final GitHubRelease? release;
-  final bool hasUpdate;
-  final bool noReleases;
-
-  const UpdateCheckResult({
-    required this.currentVersion,
-    required this.release,
-    required this.hasUpdate,
-    required this.noReleases,
-  });
-}
-
-class GitHubRelease {
-  final String version;
-  final String name;
-  final String notes;
-  final String pageUrl;
-  final String? apkUrl;
-  final int? apkSize;
-  final String? sha256Checksum;
-
-  const GitHubRelease({
-    required this.version,
-    required this.name,
-    required this.notes,
-    required this.pageUrl,
-    required this.apkUrl,
-    required this.apkSize,
-    required this.sha256Checksum,
-  });
-}
-).hasMatch(core)) {
+    if (!RegExp(r'^\d+(\.\d+)*$').hasMatch(core)) {
       throw FormatException('Unsupported version format: $version');
     }
 

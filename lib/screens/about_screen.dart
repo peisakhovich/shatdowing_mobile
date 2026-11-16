@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:ota_update/ota_update.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -49,15 +50,12 @@ class _AboutScreenState extends State<AboutScreen> {
 
   Future<void> _openLink(String url) async {
     final uri = Uri.parse(url);
-    final opened = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
     if (!opened && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open the link.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not open the link.')));
     }
   }
 
@@ -111,75 +109,73 @@ class _AboutScreenState extends State<AboutScreen> {
       _downloadSubscription = _updateService
           .downloadAndInstall(release)
           .listen(
-        (event) {
-          if (!mounted) return;
+            (event) {
+              if (!mounted) return;
 
-          setState(() {
-            switch (event.status) {
-              case OtaStatus.DOWNLOADING:
-                final rawValue = event.value ?? '';
-                final number = double.tryParse(
-                  rawValue.replaceAll('%', '').trim(),
-                );
-                if (number != null) {
-                  _downloadProgress =
-                      (number > 1 ? number / 100 : number).clamp(0.0, 1.0);
+              setState(() {
+                switch (event.status) {
+                  case OtaStatus.DOWNLOADING:
+                    final rawValue = event.value ?? '';
+                    final number = double.tryParse(
+                      rawValue.replaceAll('%', '').trim(),
+                    );
+                    if (number != null) {
+                      _downloadProgress = (number > 1 ? number / 100 : number)
+                          .clamp(0.0, 1.0);
+                    }
+                    _statusMessage = 'Downloading update…';
+                    break;
+
+                  case OtaStatus.INSTALLING:
+                    _downloading = false;
+                    _downloadProgress = 1;
+                    _statusMessage = 'Download complete. Follow the Android installer instructions.';
+                    break;
+
+                  case OtaStatus.INSTALLATION_DONE:
+                    _downloading = false;
+                    _statusMessage = 'Installation completed.';
+                    break;
+
+                  case OtaStatus.PERMISSION_NOT_GRANTED_ERROR:
+                    _downloading = false;
+                    _statusMessage = 'Allow this app to install unknown apps in Android settings, then try again.';
+                    break;
+
+                  case OtaStatus.DOWNLOAD_ERROR:
+                  case OtaStatus.CHECKSUM_ERROR:
+                  case OtaStatus.INSTALLATION_ERROR:
+                  case OtaStatus.INTERNAL_ERROR:
+                  case OtaStatus.ALREADY_RUNNING_ERROR:
+                    _downloading = false;
+                    _statusMessage =
+                        'Update failed: ${event.value ?? event.status.name}';
+                    break;
+
+                  case OtaStatus.CANCELED:
+                    _downloading = false;
+                    _statusMessage = 'Update canceled.';
+                    break;
                 }
-                _statusMessage = 'Downloading update…';
-                break;
-
-              case OtaStatus.INSTALLING:
+              });
+            },
+            onError: (Object error) {
+              if (!mounted) return;
+              setState(() {
                 _downloading = false;
-                _downloadProgress = 1;
-                _statusMessage =
-                    'Download complete. Follow the Android installer instructions.';
-                break;
-
-              case OtaStatus.INSTALLATION_DONE:
-                _downloading = false;
-                _statusMessage = 'Installation completed.';
-                break;
-
-              case OtaStatus.PERMISSION_NOT_GRANTED_ERROR:
-                _downloading = false;
-                _statusMessage =
-                    'Allow this app to install unknown apps in Android settings, then try again.';
-                break;
-
-              case OtaStatus.DOWNLOAD_ERROR:
-              case OtaStatus.CHECKSUM_ERROR:
-              case OtaStatus.INSTALLATION_ERROR:
-              case OtaStatus.INTERNAL_ERROR:
-              case OtaStatus.ALREADY_RUNNING_ERROR:
-                _downloading = false;
-                _statusMessage =
-                    'Update failed: ${event.value ?? event.status.name}';
-                break;
-
-              case OtaStatus.CANCELED:
-                _downloading = false;
-                _statusMessage = 'Update canceled.';
-                break;
-            }
-          });
-        },
-        onError: (Object error) {
-          if (!mounted) return;
-          setState(() {
-            _downloading = false;
-            _statusMessage = 'Update failed: $error';
-          });
-        },
-        onDone: () {
-          if (!mounted) return;
-          if (_downloading) {
-            setState(() {
-              _downloading = false;
-              _statusMessage ??= 'Update download finished.';
-            });
-          }
-        },
-      );
+                _statusMessage = 'Update failed: $error';
+              });
+            },
+            onDone: () {
+              if (!mounted) return;
+              if (_downloading) {
+                setState(() {
+                  _downloading = false;
+                  _statusMessage ??= 'Update download finished.';
+                });
+              }
+            },
+          );
     } catch (error) {
       setState(() {
         _downloading = false;
@@ -208,8 +204,10 @@ class _AboutScreenState extends State<AboutScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Software updates',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Software updates',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: _checking || _downloading ? null : _checkForUpdates,
@@ -234,8 +232,10 @@ class _AboutScreenState extends State<AboutScreen> {
               ),
               if (release.notes.trim().isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text('Release notes',
-                    style: Theme.of(context).textTheme.labelLarge),
+                Text(
+                  'Release notes',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
                 const SizedBox(height: 4),
                 SelectableText(release.notes),
               ],
@@ -310,11 +310,15 @@ class _AboutScreenState extends State<AboutScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
                       children: [
-                        _buildReadmeLink('Mobile application README',
-                            _mobileReadmeUrl),
+                        _buildReadmeLink(
+                          'Mobile application README',
+                          _mobileReadmeUrl,
+                        ),
                         const Divider(height: 1),
-                        _buildReadmeLink('Desktop application README',
-                            _desktopReadmeUrl),
+                        _buildReadmeLink(
+                          'Desktop application README',
+                          _desktopReadmeUrl,
+                        ),
                       ],
                     ),
                   ),
