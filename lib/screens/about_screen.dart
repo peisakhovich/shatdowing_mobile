@@ -16,6 +16,7 @@ class AboutScreen extends StatefulWidget {
 }
 
 class _AboutScreenState extends State<AboutScreen> {
+  static const Color _linkColor = Color(0xFF0000EE);
   static const String _mobileReadmeUrl =
       'https://github.com/peisakhovich/shatdowing_mobile#readme';
   static const String _desktopReadmeUrl =
@@ -187,9 +188,15 @@ class _AboutScreenState extends State<AboutScreen> {
   Widget _buildReadmeLink(String label, String url) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.open_in_new),
-      title: Text(label),
-      trailing: const Icon(Icons.chevron_right),
+      leading: const Icon(Icons.open_in_new, color: _linkColor),
+      title: Text(
+        label,
+        style: const TextStyle(
+          color: _linkColor,
+          decoration: TextDecoration.underline,
+        ),
+      ),
+      trailing: const Icon(Icons.chevron_right, color: _linkColor),
       onTap: () => _openLink(url),
     );
   }
@@ -252,6 +259,12 @@ class _AboutScreenState extends State<AboutScreen> {
                 ],
               ],
               TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: _linkColor,
+                  textStyle: const TextStyle(
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
                 onPressed: () => _openLink(release.pageUrl),
                 child: const Text('View release on GitHub'),
               ),
@@ -346,6 +359,12 @@ class _AboutScreenState extends State<AboutScreen> {
                         ),
                         const SizedBox(height: 4),
                         TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: _linkColor,
+                            textStyle: const TextStyle(
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
                           onPressed: () =>
                               _openLink(UpdateService.latestReleaseUrl),
                           child: const Text('Open GitHub Releases'),
