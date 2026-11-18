@@ -72,6 +72,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _randomizerEnabled = false;
   int _repeatMultiplier = 1;
 
+  // Independent runtime audio switches for the original phrase and translation.
+  bool _phraseAudioEnabled = true;
+  bool _translationAudioEnabled = true;
+  String? _activeAudioType;
+
   // Accumulated horizontal movement while swiping the text area.
   double _horizontalDragDelta = 0;
 
@@ -747,6 +752,35 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
+  void _toggleAudio(String audioType) {
+    final isPhrase = audioType == 'phrase';
+    final currentlyEnabled = isPhrase
+        ? _phraseAudioEnabled
+        : _translationAudioEnabled;
+    final enabled = !currentlyEnabled;
+
+    setState(() {
+      if (isPhrase) {
+        _phraseAudioEnabled = enabled;
+      } else {
+        _translationAudioEnabled = enabled;
+      }
+    });
+
+    // Turning off the currently playing audio stops it immediately.
+    // The scenario then continues with its next action.
+    if (!enabled && _activeAudioType == audioType) {
+      unawaited(_audioPlayerService.stop());
+      _activeAudioType = null;
+    }
+  }
+
+  bool _isAudioEnabled(String audioType) {
+    return audioType == 'phrase'
+        ? _phraseAudioEnabled
+        : _translationAudioEnabled;
+  }
+
   bool _isPlaybackCancelled(int generation) {
     return !mounted || !_isPlaying || generation != _playbackGeneration;
   }
@@ -848,7 +882,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       throw StateError(lng.t('playerItemNotLoaded'));
     }
 
-    final String audioType;
+    String audioType;
 
     switch (action.source) {
       case 'phrase_audio':
@@ -864,22 +898,36 @@ class _PlayerScreenState extends State<PlayerScreen> {
         throw FormatException(lng.t('playerUnknownAudioSource', params: {'source': action.source}));
     }
 
+    // Audio switches are independent of the selected scenario.
+    if (!_isAudioEnabled(audioType)) return;
+
     final audioPath = await _getAudioPath(
       itemId: item.id,
       audioType: audioType,
     );
 
-    if (_isPlaybackCancelled(generation)) return;
+    if (_isPlaybackCancelled(generation) || !_isAudioEnabled(audioType)) {
+      return;
+    }
 
     // Не начинаем воспроизведение, пока действует Bluetooth-пауза.
     await _pauseController.waitWhilePaused();
 
-    if (_isPlaybackCancelled(generation)) return;
+    if (_isPlaybackCancelled(generation) || !_isAudioEnabled(audioType)) {
+      return;
+    }
 
-    if (audioPath.startsWith('assets/')) {
-      await _audioPlayerService.playAsset(audioPath);
-    } else {
-      await _audioPlayerService.playFile(audioPath);
+    _activeAudioType = audioType;
+    try {
+      if (audioPath.startsWith('assets/')) {
+        await _audioPlayerService.playAsset(audioPath);
+      } else {
+        await _audioPlayerService.playFile(audioPath);
+      }
+    } finally {
+      if (_activeAudioType == audioType) {
+        _activeAudioType = null;
+      }
     }
   }
 
@@ -1345,12 +1393,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         title: lng.t('playerOriginal'),
                         text: _phraseText,
                         visible: _showTop,
+                        audioEnabled: _phraseAudioEnabled,
+                        onDoubleTap: () => _toggleAudio('phrase'),
                         baseFontSize: 26,
                       ),
                       AdaptiveTextWindow(
                         title: lng.t('playerTranslation'),
                         text: _translateText,
                         visible: _showBottom,
+                        audioEnabled: _translationAudioEnabled,
+                        onDoubleTap: _hasTranslation
+                            ? () => _toggleAudio('translate')
+                            : null,
                         baseFontSize: 20,
                       ),
                     ],
