@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 
 import '../../localization/localization.dart';
 import '../../models/voice_test_assessment.dart';
@@ -8,12 +9,14 @@ class VoiceTestDialog extends StatefulWidget {
   final VoiceTestService service;
   final VoiceTestRequest request;
   final VoiceTestCancellationToken cancellationToken;
+  final String referenceAudioPath;
 
   const VoiceTestDialog({
     super.key,
     required this.service,
     required this.request,
     required this.cancellationToken,
+    required this.referenceAudioPath,
   });
 
   @override
@@ -28,6 +31,8 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   VoiceTestResult? _result;
   VoiceTestAssessment? _assessment;
   bool _starting = false;
+  final AudioPlayer _feedbackPlayer = AudioPlayer();
+  bool _isPlayingFeedback = false;
 
   @override
   void initState() {
@@ -40,10 +45,15 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   }
 
   Future<void> _startRecording() async {
-    if (_starting ||
+    if (_starting || _isPlayingFeedback ||
         _phase == _DialogPhase.recording ||
         _phase == _DialogPhase.processing) {
       return;
+    }
+
+    final previousRecording = _result?.recordingPath;
+    if (previousRecording != null) {
+      await widget.service.deleteTemporaryRecording(previousRecording);
     }
 
     setState(() {
@@ -82,6 +92,51 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   }
 
   void _stopRecording() => widget.service.stopRecording();
+
+  Future<void> _playFeedback() async {
+    final recordingPath = _result?.recordingPath;
+    if (recordingPath == null || _isPlayingFeedback) return;
+
+    setState(() => _isPlayingFeedback = true);
+    try {
+      await _feedbackPlayer.setFilePath(recordingPath);
+      final recordingCompleted = _feedbackPlayer.processingStateStream.firstWhere(
+        (state) => state == ProcessingState.completed || state == ProcessingState.idle,
+      );
+      await _feedbackPlayer.play();
+      await recordingCompleted;
+
+      if (!mounted) return;
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+
+      if (widget.referenceAudioPath.startsWith('assets/')) {
+        await _feedbackPlayer.setAsset(widget.referenceAudioPath);
+      } else {
+        await _feedbackPlayer.setFilePath(widget.referenceAudioPath);
+      }
+      final referenceCompleted = _feedbackPlayer.processingStateStream.firstWhere(
+        (state) => state == ProcessingState.completed || state == ProcessingState.idle,
+      );
+      await _feedbackPlayer.play();
+      await referenceCompleted;
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(lng.t('playerPlaybackError', params: {'error': error}))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPlayingFeedback = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_feedbackPlayer.dispose());
+    unawaited(widget.service.deleteTemporaryRecording(_result?.recordingPath));
+    super.dispose();
+  }
 
   String _formatDuration(Duration duration) {
     final seconds = duration.inSeconds;
@@ -572,16 +627,31 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
                   child: Row(
                     children: [
-                      if (_phase == _DialogPhase.result)
+                      if (_phase == _DialogPhase.result) ...[
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: _startRecording,
+                            onPressed: _isPlayingFeedback ? null : _playFeedback,
+                            icon: _isPlayingFeedback
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.volume_up),
+                            label: Text(lng.t('voiceListen')),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _isPlayingFeedback ? null : _startRecording,
                             icon: const Icon(Icons.refresh),
                             label: Text(lng.t('voiceRetry')),
                           ),
                         ),
+                      ],
                       if (_phase == _DialogPhase.result)
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                       Expanded(
                         child: FilledButton(
                           onPressed: () => Navigator.of(context).pop(),
