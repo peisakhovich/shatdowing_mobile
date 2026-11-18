@@ -911,6 +911,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
       if (!mounted || _isPlaybackCancelled(generation)) return;
 
+      final referenceAudioPath = await _getAudioPath(
+        itemId: item.id,
+        audioType: 'phrase',
+      );
+
+      if (!mounted || _isPlaybackCancelled(generation)) return;
+
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
@@ -921,10 +928,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             locale: locale,
           ),
           cancellationToken: token,
-          referenceAudioPath: await _getAudioPath(
-            itemId: item.id,
-            audioType: 'phrase',
-          ),
+          referenceAudioPath: referenceAudioPath,
         ),
       );
 
