@@ -59,6 +59,7 @@ const Map<String, String> stringsRU = {
   'pauseRepeatMultiplier': "Множитель повторов",
   'voiceTitle': "Результаты проверки произношения",
   'voiceClose': "Закрыть",
+  'voiceListen': "Прослушать",
   'voiceSayPhrase': "Произнесите фразу:",
   'voiceStartInstruction': "Нажмите «Начать запись» и произнесите фразу естественно.",
   'voiceStart': "Начать запись",
