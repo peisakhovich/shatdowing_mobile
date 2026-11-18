@@ -921,6 +921,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
             locale: locale,
           ),
           cancellationToken: token,
+          referenceAudioPath: await _getAudioPath(
+            itemId: item.id,
+            audioType: 'phrase',
+          ),
         ),
       );
 
