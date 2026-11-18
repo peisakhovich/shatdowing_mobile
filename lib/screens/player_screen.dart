@@ -72,6 +72,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _randomizerEnabled = false;
   int _repeatMultiplier = 1;
 
+  // Accumulated horizontal movement while swiping the text area.
+  double _horizontalDragDelta = 0;
+
   // Настройки пользователя не изменяют исходные данные LearningItem.
   double _pauseBeforeTranslationFactor = 1.0;
   int _pauseBetweenSentencesMs = 2000;
@@ -1310,17 +1313,49 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 lng.t('playerItemCounter', params: {'current': _currentItemIndex + 1, 'total': _items.length}),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-              AdaptiveTextWindow(
-                title: lng.t('playerOriginal'),
-                text: _phraseText,
-                visible: _showTop,
-                baseFontSize: 26,
-              ),
-              AdaptiveTextWindow(
-                title: lng.t('playerTranslation'),
-                text: _translateText,
-                visible: _showBottom,
-                baseFontSize: 20,
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragStart: (_) {
+                    _horizontalDragDelta = 0;
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    _horizontalDragDelta += details.delta.dx;
+                  },
+                  onHorizontalDragEnd: (_) {
+                    const swipeThreshold = 60.0;
+                    final delta = _horizontalDragDelta;
+                    _horizontalDragDelta = 0;
+
+                    if (delta.abs() < swipeThreshold || _items.isEmpty) {
+                      return;
+                    }
+
+                    if (delta < 0 && _currentItemIndex < _items.length - 1) {
+                      // Swipe left: next item.
+                      _navigateToItem(_currentItemIndex + 1);
+                    } else if (delta > 0 && _currentItemIndex > 0) {
+                      // Swipe right: previous item.
+                      _navigateToItem(_currentItemIndex - 1);
+                    }
+                  },
+                  child: Column(
+                    children: [
+                      AdaptiveTextWindow(
+                        title: lng.t('playerOriginal'),
+                        text: _phraseText,
+                        visible: _showTop,
+                        baseFontSize: 26,
+                      ),
+                      AdaptiveTextWindow(
+                        title: lng.t('playerTranslation'),
+                        text: _translateText,
+                        visible: _showBottom,
+                        baseFontSize: 20,
+                      ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
               PlayerControls(
