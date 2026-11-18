@@ -59,6 +59,7 @@ const Map<String, String> stringsEN = {
   'pauseRepeatMultiplier': "Repeat multiplier",
   'voiceTitle': "Speech assessment results",
   'voiceClose': "Close",
+  'voiceListen': "Listen",
   'voiceSayPhrase': "Say the phrase:",
   'voiceStartInstruction': "Tap “Start recording” and say the phrase naturally.",
   'voiceStart': "Start recording",
