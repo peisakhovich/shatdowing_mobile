@@ -26,6 +26,7 @@ class VoiceTestDialog extends StatefulWidget {
 }
 
 enum _DialogPhase { ready, recording, processing, result, error }
+enum _FeedbackAudio { recording, reference }
 
 class _VoiceTestDialogState extends State<VoiceTestDialog> {
   _DialogPhase _phase = _DialogPhase.ready;
@@ -34,7 +35,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   VoiceTestAssessment? _assessment;
   bool _starting = false;
   final AudioPlayer _feedbackPlayer = AudioPlayer();
-  bool _isPlayingFeedback = false;
+  _FeedbackAudio? _playingAudio;
 
   @override
   void initState() {
@@ -47,7 +48,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
   }
 
   Future<void> _startRecording() async {
-    if (_starting || _isPlayingFeedback ||
+    if (_starting || _playingAudio != null ||
         _phase == _DialogPhase.recording ||
         _phase == _DialogPhase.processing) {
       return;
@@ -95,33 +96,27 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
 
   void _stopRecording() => widget.service.stopRecording();
 
-  Future<void> _playFeedback() async {
+  Future<void> _playAudio(_FeedbackAudio audio) async {
+    if (_playingAudio != null) return;
+
     final recordingPath = _result?.recordingPath;
-    if (recordingPath == null || _isPlayingFeedback) return;
+    if (audio == _FeedbackAudio.recording && recordingPath == null) return;
 
-    setState(() => _isPlayingFeedback = true);
+    setState(() => _playingAudio = audio);
     try {
-      await _feedbackPlayer.setFilePath(recordingPath);
-      final recordingCompleted = _feedbackPlayer.processingStateStream.firstWhere(
-        (state) => state == ProcessingState.completed || state == ProcessingState.idle,
-      );
-      await _feedbackPlayer.play();
-      await recordingCompleted;
-
-      if (!mounted) return;
-      await Future<void>.delayed(const Duration(milliseconds: 500));
-      if (!mounted) return;
-
-      if (widget.referenceAudioPath.startsWith('assets/')) {
+      if (audio == _FeedbackAudio.recording) {
+        await _feedbackPlayer.setFilePath(recordingPath!);
+      } else if (widget.referenceAudioPath.startsWith('assets/')) {
         await _feedbackPlayer.setAsset(widget.referenceAudioPath);
       } else {
         await _feedbackPlayer.setFilePath(widget.referenceAudioPath);
       }
-      final referenceCompleted = _feedbackPlayer.processingStateStream.firstWhere(
+
+      final completed = _feedbackPlayer.processingStateStream.firstWhere(
         (state) => state == ProcessingState.completed || state == ProcessingState.idle,
       );
       await _feedbackPlayer.play();
-      await referenceCompleted;
+      await completed;
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -129,7 +124,7 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isPlayingFeedback = false);
+      if (mounted) setState(() => _playingAudio = null);
     }
   }
 
@@ -627,39 +622,67 @@ class _VoiceTestDialogState extends State<VoiceTestDialog> {
               if (_phase == _DialogPhase.result || _phase == _DialogPhase.error)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: Row(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      Row(
+                        children: [
+                          if (_phase == _DialogPhase.result)
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _playingAudio != null ? null : _startRecording,
+                                icon: const Icon(Icons.refresh),
+                                label: Text(lng.t('voiceRetry')),
+                              ),
+                            ),
+                          if (_phase == _DialogPhase.result)
+                            const SizedBox(width: 10),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: Text(lng.t('voiceClose')),
+                            ),
+                          ),
+                        ],
+                      ),
                       if (_phase == _DialogPhase.result) ...[
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _isPlayingFeedback ? null : _playFeedback,
-                            icon: _isPlayingFeedback
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.volume_up),
-                            label: Text(lng.t('voiceListen')),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _isPlayingFeedback ? null : _startRecording,
-                            icon: const Icon(Icons.refresh),
-                            label: Text(lng.t('voiceRetry')),
-                          ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _playingAudio != null
+                                    ? null
+                                    : () => _playAudio(_FeedbackAudio.recording),
+                                icon: _playingAudio == _FeedbackAudio.recording
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.record_voice_over),
+                                label: Text(lng.t('voiceListenRecording')),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _playingAudio != null
+                                    ? null
+                                    : () => _playAudio(_FeedbackAudio.reference),
+                                icon: _playingAudio == _FeedbackAudio.reference
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.volume_up),
+                                label: Text(lng.t('voiceListenReference')),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
-                      if (_phase == _DialogPhase.result)
-                        const SizedBox(width: 8),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: Text(lng.t('voiceClose')),
-                        ),
-                      ),
                     ],
                   ),
                 ),
