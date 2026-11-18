@@ -4,6 +4,9 @@ class AdaptiveTextWindow extends StatelessWidget {
   final String title;
   final String text;
   final bool visible;
+  final bool audioEnabled;
+  final String audioTooltip;
+  final VoidCallback? onDoubleTap;
   final double baseFontSize;
   final double minFontSize;
 
@@ -12,6 +15,9 @@ class AdaptiveTextWindow extends StatelessWidget {
     required this.title,
     required this.text,
     required this.visible,
+    this.audioEnabled = true,
+    required this.audioTooltip,
+    this.onDoubleTap,
     required this.baseFontSize,
     this.minFontSize = 8,
   });
@@ -84,7 +90,9 @@ class AdaptiveTextWindow extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Expanded(
-      child: Container(
+      child: GestureDetector(
+        onDoubleTap: onDoubleTap,
+        child: Container(
         width: double.infinity,
         margin: const EdgeInsets.symmetric(vertical: 6),
         padding: const EdgeInsets.all(16),
@@ -99,7 +107,21 @@ class AdaptiveTextWindow extends StatelessWidget {
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: theme.textTheme.labelMedium),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Tooltip(
+                        message: audioTooltip,
+                        child: Icon(
+                          audioEnabled ? Icons.volume_up : Icons.volume_off,
+                          size: 16,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(title, style: theme.textTheme.labelMedium),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   Expanded(
                     child: LayoutBuilder(
@@ -163,6 +185,7 @@ class AdaptiveTextWindow extends StatelessWidget {
                 ],
               )
             : const SizedBox.shrink(),
+        ),
       ),
     );
   }
