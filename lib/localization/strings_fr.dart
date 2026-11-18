@@ -59,6 +59,7 @@ const Map<String, String> stringsFR = {
   'pauseRepeatMultiplier': "Multiplicateur de répétitions",
   'voiceTitle': "Résultats de l’évaluation de la prononciation",
   'voiceClose': "Fermer",
+  'voiceListen': "Écouter",
   'voiceSayPhrase': "Prononcez la phrase :",
   'voiceStartInstruction': "Appuyez sur « Démarrer l’enregistrement » et prononcez la phrase naturellement.",
   'voiceStart': "Démarrer l’enregistrement",
