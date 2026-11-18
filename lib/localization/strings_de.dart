@@ -59,6 +59,7 @@ const Map<String, String> stringsDE = {
   'pauseRepeatMultiplier': "Wiederholungsfaktor",
   'voiceTitle': "Ergebnisse der Ausspracheprüfung",
   'voiceClose': "Schließen",
+  'voiceListen': "Anhören",
   'voiceSayPhrase': "Sprechen Sie den Satz:",
   'voiceStartInstruction': "Tippen Sie auf „Aufnahme starten“ und sprechen Sie den Satz natürlich aus.",
   'voiceStart': "Aufnahme starten",
