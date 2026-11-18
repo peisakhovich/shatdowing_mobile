@@ -13,18 +13,24 @@ class VoiceTestResult {
   final Map<String, dynamic>? assessmentData;
   final String? errorCode;
   final String? errorMessage;
+  final String? recordingPath;
 
   const VoiceTestResult({
     required this.success,
     this.assessmentData,
     this.errorCode,
     this.errorMessage,
+    this.recordingPath,
   });
 
-  factory VoiceTestResult.completed(Map<String, dynamic> assessmentData) {
+  factory VoiceTestResult.completed(
+    Map<String, dynamic> assessmentData, {
+    required String recordingPath,
+  }) {
     return VoiceTestResult(
       success: true,
       assessmentData: assessmentData,
+      recordingPath: recordingPath,
     );
   }
 
@@ -368,6 +374,9 @@ class VoiceTestService {
     }
   }
 
+  /// Удаляет временную запись после завершения диалога анализа.
+  Future<void> deleteTemporaryRecording(String? path) => _deleteFile(path);
+
   Future<VoiceTestResult> execute({
     required VoiceTestRequest request,
     required VoiceTestCancellationToken cancellationToken,
@@ -402,6 +411,7 @@ class VoiceTestService {
     }
 
     final audioPath = capture.filePath!;
+    var keepRecording = false;
 
     try {
       if (cancellationToken.isCancelled) {
@@ -442,7 +452,11 @@ class VoiceTestService {
         );
       }
 
-      return VoiceTestResult.completed(response);
+      keepRecording = true;
+      return VoiceTestResult.completed(
+        response,
+        recordingPath: audioPath,
+      );
     } on TimeoutException {
       return VoiceTestResult.failure(
         errorCode: 'request_timeout',
@@ -463,7 +477,9 @@ class VoiceTestService {
         errorMessage: 'Не удалось проверить произношение: $error',
       );
     } finally {
-      await _deleteFile(audioPath);
+      if (!keepRecording) {
+        await _deleteFile(audioPath);
+      }
     }
   }
 
