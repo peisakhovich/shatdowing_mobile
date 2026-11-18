@@ -5,6 +5,7 @@ class AdaptiveTextWindow extends StatelessWidget {
   final String text;
   final bool visible;
   final bool audioEnabled;
+  final String audioTooltip;
   final VoidCallback? onDoubleTap;
   final double baseFontSize;
   final double minFontSize;
@@ -15,6 +16,7 @@ class AdaptiveTextWindow extends StatelessWidget {
     required this.text,
     required this.visible,
     this.audioEnabled = true,
+    required this.audioTooltip,
     this.onDoubleTap,
     required this.baseFontSize,
     this.minFontSize = 8,
@@ -108,10 +110,13 @@ class AdaptiveTextWindow extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        audioEnabled ? Icons.volume_up : Icons.volume_off,
-                        size: 16,
-                        color: theme.colorScheme.onSurfaceVariant,
+                      Tooltip(
+                        message: audioTooltip,
+                        child: Icon(
+                          audioEnabled ? Icons.volume_up : Icons.volume_off,
+                          size: 16,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       const SizedBox(width: 6),
                       Text(title, style: theme.textTheme.labelMedium),
