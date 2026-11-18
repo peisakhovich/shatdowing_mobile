@@ -1394,6 +1394,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         text: _phraseText,
                         visible: _showTop,
                         audioEnabled: _phraseAudioEnabled,
+                        audioTooltip: lng.t(
+                          _phraseAudioEnabled
+                              ? 'playerOriginalAudioOn'
+                              : 'playerOriginalAudioOff',
+                        ),
                         onDoubleTap: () => _toggleAudio('phrase'),
                         baseFontSize: 26,
                       ),
@@ -1402,6 +1407,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         text: _translateText,
                         visible: _showBottom,
                         audioEnabled: _translationAudioEnabled,
+                        audioTooltip: lng.t(
+                          _translationAudioEnabled
+                              ? 'playerTranslationAudioOn'
+                              : 'playerTranslationAudioOff',
+                        ),
                         onDoubleTap: _hasTranslation
                             ? () => _toggleAudio('translate')
                             : null,
