@@ -2,6 +2,11 @@
 const Map<String, String> stringsFR = {
   'appTitle': "Sound Language Studio",
   'playerTitle': "Sound Language Studio",
+  'playerExitTooltip': "Quitter l’application",
+  'playerExitTitle': "Quitter Sound Language Studio ?",
+  'playerExitMessage': "La lecture sera arrêtée et le service audio en arrière-plan sera fermé.",
+  'playerExitCancel': "Annuler",
+  'playerExitConfirm': "Quitter",
   'playerLoadingSet': "Chargement du jeu d’apprentissage",
   'playerCheckingSet': "Vérification du jeu",
   'playerCheckingFiles': "Vérification des fichiers locaux…",
