@@ -2,6 +2,11 @@
 const Map<String, String> stringsEN = {
   'appTitle': "Sound Language Studio",
   'playerTitle': "Sound Language Studio",
+  'playerExitTooltip': "Exit app",
+  'playerExitTitle': "Exit Sound Language Studio?",
+  'playerExitMessage': "Playback will stop and the background audio service will be closed.",
+  'playerExitCancel': "Cancel",
+  'playerExitConfirm': "Exit",
   'playerLoadingSet': "Loading learning set",
   'playerCheckingSet': "Checking learning set",
   'playerCheckingFiles': "Checking local files…",

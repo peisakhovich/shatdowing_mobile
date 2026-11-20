@@ -75,4 +75,11 @@ class BluetoothAudioHandler extends BaseAudioHandler {
   Future<void> skipToPrevious() async {
     customEvent.add('previous');
   }
+
+  /// Stop the media service when Android removes the app task from Recents.
+  @override
+  Future<void> onTaskRemoved() async {
+    customEvent.add('shutdown');
+    await stop();
+  }
 }

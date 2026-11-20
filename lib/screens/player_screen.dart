@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../localization/localization.dart';
 import '../services/bluetooth_audio_service.dart';
@@ -200,6 +201,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
               if (_items.isNotEmpty) {
                 _navigateToItem(_currentItemIndex - 1);
               }
+              break;
+
+            case 'shutdown':
+              _cancelVoiceTest();
+              _playbackGeneration++;
+              _pauseController.reset();
+              unawaited(_audioPlayerService.stop());
+              setState(() {
+                _isPlaying = false;
+                _isPaused = false;
+              });
               break;
           }
         });
@@ -1155,7 +1167,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final percent = (_downloadProgress * 100).round();
 
     return Scaffold(
-      appBar: AppBar(title: Text(lng.t('playerTitle'))),
+      appBar: _buildAppBar(),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -1242,6 +1254,71 @@ class _PlayerScreenState extends State<PlayerScreen> {
     super.dispose();
   }
 
+  /// App bar shared by the main player and its loading/error states.
+  AppBar _buildAppBar() {
+    return AppBar(
+      title: Text(lng.t('playerTitle')),
+      actions: [
+        IconButton(
+          tooltip: lng.t('playerExitTooltip'),
+          onPressed: _confirmExit,
+          color: Theme.of(context).colorScheme.error,
+          icon: const Icon(Icons.power_settings_new),
+        ),
+      ],
+    );
+  }
+
+  /// Confirms and performs a complete application exit.
+  Future<void> _confirmExit() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(lng.t('playerExitTitle')),
+        content: Text(lng.t('playerExitMessage')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(lng.t('playerExitCancel')),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.power_settings_new),
+            label: Text(lng.t('playerExitConfirm')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    _cancelVoiceTest();
+    _playbackGeneration++;
+    _pauseController.reset();
+
+    setState(() {
+      _isPlaying = false;
+      _isPaused = false;
+    });
+
+    try {
+      await _audioPlayerService.stop();
+    } catch (error) {
+      debugPrint('[APP EXIT] Could not stop audio playback: $error');
+    }
+
+    try {
+      // AudioProcessingState.idle disables the media notification.
+      await BluetoothAudioService.handler.stop();
+    } catch (error) {
+      debugPrint('[APP EXIT] Could not stop the audio service: $error');
+    }
+
+    if (mounted) {
+      await SystemNavigator.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -1253,14 +1330,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Widget _buildLocalizedContent(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: Text(lng.t('playerTitle'))),
+        appBar: _buildAppBar(),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_errorMessage != null) {
       return Scaffold(
-        appBar: AppBar(title: Text(lng.t('playerTitle'))),
+        appBar: _buildAppBar(),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -1276,7 +1353,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     if (_setError != null) {
       return Scaffold(
-        appBar: AppBar(title: Text(lng.t('playerTitle'))),
+        appBar: _buildAppBar(),
         body: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -1312,7 +1389,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final scenario = _selectedScenario!;
 
     return Scaffold(
-      appBar: AppBar(title: Text(lng.t('playerTitle'))),
+      appBar: _buildAppBar(),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
